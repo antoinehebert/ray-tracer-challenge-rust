@@ -138,6 +138,12 @@ fn main() {
 mod tests {
     use super::*;
 
+    macro_rules! assert_almost_eq {
+        ($lhs: expr, $rhs: expr) => {
+            assert!(is_almost_equal($lhs, $rhs));
+        };
+    }
+
     #[test]
     fn a_tuple_with_w_eq_1_is_a_point() {
         let t = Tuple::new(4.3, -4.2, 3.1, 1.0);
@@ -278,7 +284,7 @@ mod tests {
         let norm = v.normalize();
 
         assert_eq!(norm, Tuple::vector(0.26726124, 0.5345225, 0.8017837));
-        assert!(is_almost_equal(norm.magnitude(), 1.));
+        assert_almost_eq!(norm.magnitude(), 1.);
     }
 
     #[test]
@@ -286,7 +292,7 @@ mod tests {
         let v = Tuple::vector(1., 2., 3.);
         let norm = v.normalize();
 
-        assert!(is_almost_equal(norm.magnitude(), 1.));
+        assert_almost_eq!(norm.magnitude(), 1.);
     }
 
     #[test]
@@ -294,7 +300,7 @@ mod tests {
         let a = Tuple::vector(1., 2., 3.);
         let b = Tuple::vector(2., 3., 4.);
 
-        assert!(is_almost_equal(a.dot(&b), 20.));
+        assert_almost_eq!(a.dot(&b), 20.);
     }
 
     #[test]
