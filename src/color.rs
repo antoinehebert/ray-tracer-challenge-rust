@@ -12,11 +12,11 @@ pub static RED: Color = Color {
     blue: 0.,
 };
 
-// pub static GREEN: Color = Color {
-//     red: 0.,
-//     green: 1.,
-//     blue: 0.,
-// };
+pub static GREEN: Color = Color {
+    red: 0.,
+    green: 1.,
+    blue: 0.,
+};
 // pub static BLUE: Color = Color {
 //     red: 0.,
 //     green: 0.,
@@ -30,13 +30,13 @@ pub static RED: Color = Color {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Color {
-    red: f32,
-    green: f32,
-    blue: f32,
+    pub red: f32,
+    pub green: f32,
+    pub blue: f32,
 }
 
 impl Color {
-    fn new(red: f32, green: f32, blue: f32) -> Self {
+    pub fn new(red: f32, green: f32, blue: f32) -> Self {
         Self { red, green, blue }
     }
 }
