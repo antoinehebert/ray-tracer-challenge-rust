@@ -1,3 +1,4 @@
+mod canvas;
 mod color;
 mod test_utils;
 mod tuple;
