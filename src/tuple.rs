@@ -103,10 +103,10 @@ impl ops::Sub<Tuple> for Tuple {
     }
 }
 
-impl ops::Not for Tuple {
+impl ops::Neg for Tuple {
     type Output = Self;
 
-    fn not(self) -> Self::Output {
+    fn neg(self) -> Self::Output {
         Self::new(-self.x, -self.y, -self.z, -self.w)
     }
 }
@@ -214,7 +214,7 @@ mod tests {
     fn negating_a_tuple() {
         let a = Tuple::new(1., -2., 3., -4.);
 
-        assert_eq!(!a, Tuple::new(-1., 2., -3., 4.));
+        assert_eq!(-a, Tuple::new(-1., 2., -3., 4.));
     }
     #[test]
     fn multiplying_a_tuple_by_a_scalar() {
