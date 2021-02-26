@@ -1,6 +1,12 @@
+use crate::assert_almost_eq;
 use crate::utils::*;
 use std::ops;
 
+////////////////////////////////////////////////////////////////////////////////
+// Matrix4
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug)]
 struct Matrix4 {
     values: [[f32; 4]; 4],
 }
@@ -16,6 +22,23 @@ impl Matrix4 {
             ],
         }
     }
+
+    fn zero() -> Self {
+        Matrix4::new(
+            [0., 0., 0., 0.],
+            [0., 0., 0., 0.],
+            [0., 0., 0., 0.],
+            [0., 0., 0., 0.],
+        )
+    }
+
+    // fn get(&self, row: usize, col: usize) -> f32 {
+    //     self.values[row][col]
+    // }
+
+    // fn set(&self, row: usize, col: usize, val: f32) {
+    //     self.values[row][col] = val;
+    // }
 }
 
 impl ops::Index<usize> for Matrix4 {
@@ -23,6 +46,12 @@ impl ops::Index<usize> for Matrix4 {
 
     fn index(&self, idx: usize) -> &Self::Output {
         &self.values[idx]
+    }
+}
+
+impl ops::IndexMut<usize> for Matrix4 {
+    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
+        &mut self.values[idx]
     }
 }
 
@@ -38,6 +67,29 @@ impl PartialEq for Matrix4 {
         true
     }
 }
+
+impl ops::Mul for Matrix4 {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let mut result = Matrix4::zero();
+
+        for row in 0..4 {
+            for col in 0..4 {
+                result[row][col] = self[row][0] * rhs[0][col]
+                    + self[row][1] * rhs[1][col]
+                    + self[row][2] * rhs[2][col]
+                    + self[row][3] * rhs[3][col];
+            }
+        }
+
+        result
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Matrix2
+////////////////////////////////////////////////////////////////////////////////
 
 struct Matrix2 {
     values: [[f32; 2]; 2],
@@ -58,6 +110,11 @@ impl ops::Index<usize> for Matrix2 {
         &self.values[idx]
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Matrix3
+////////////////////////////////////////////////////////////////////////////////
+
 struct Matrix3 {
     values: [[f32; 3]; 3],
 }
@@ -81,6 +138,10 @@ impl ops::Index<usize> for Matrix3 {
         &self.values[idx]
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Tests
+////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(test)]
 mod tests {
@@ -156,37 +217,31 @@ mod tests {
         assert!(a != b);
     }
 
-    //
-    // Scenario: Matrix equality with different matrices
-    //   Given the following matrix A:
-    //       | 1 | 2 | 3 | 4 |
-    //       | 5 | 6 | 7 | 8 |
-    //       | 9 | 8 | 7 | 6 |
-    //       | 5 | 4 | 3 | 2 |
-    //     And the following matrix B:
-    //       | 2 | 3 | 4 | 5 |
-    //       | 6 | 7 | 8 | 9 |
-    //       | 8 | 7 | 6 | 5 |
-    //       | 4 | 3 | 2 | 1 |
-    //   Then A != B
-    //
-    // Scenario: Multiplying two matrices
-    //   Given the following matrix A:
-    //       | 1 | 2 | 3 | 4 |
-    //       | 5 | 6 | 7 | 8 |
-    //       | 9 | 8 | 7 | 6 |
-    //       | 5 | 4 | 3 | 2 |
-    //     And the following matrix B:
-    //       | -2 | 1 | 2 |  3 |
-    //       |  3 | 2 | 1 | -1 |
-    //       |  4 | 3 | 6 |  5 |
-    //       |  1 | 2 | 7 |  8 |
-    //   Then A * B is the following 4x4 matrix:
-    //       | 20|  22 |  50 |  48 |
-    //       | 44|  54 | 114 | 108 |
-    //       | 40|  58 | 110 | 102 |
-    //       | 16|  26 |  46 |  42 |
-    //
+    #[test]
+    fn multiplying_two_matrices() {
+        let a = Matrix4::new(
+            [1., 2., 3., 4.],
+            [5., 6., 7., 8.],
+            [9., 8., 7., 6.],
+            [5., 4., 3., 2.],
+        );
+        let b = Matrix4::new(
+            [-2., 1., 2., 3.],
+            [3., 2., 1., -1.],
+            [4., 3., 6., 5.],
+            [1., 2., 7., 8.],
+        );
+
+        let expectation = Matrix4::new(
+            [20., 22., 50., 48.],
+            [44., 54., 114., 108.],
+            [40., 58., 110., 102.],
+            [16., 26., 46., 42.],
+        );
+
+        assert_eq!(a * b, expectation);
+    }
+
     // Scenario: A matrix multiplied by a tuple
     //   Given the following matrix A:
     //       | 1 | 2 | 3 | 4 |
