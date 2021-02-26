@@ -1,4 +1,5 @@
 use crate::assert_almost_eq;
+use crate::tuple::*;
 use crate::utils::*;
 use std::ops;
 
@@ -82,6 +83,28 @@ impl ops::Mul for Matrix4 {
                     + self[row][3] * rhs[3][col];
             }
         }
+
+        result
+    }
+}
+
+impl ops::Mul<Tuple> for Matrix4 {
+    type Output = Tuple;
+
+    fn mul(self, rhs: Tuple) -> Self::Output {
+        let mut result = Tuple::zero();
+
+        result.x =
+            self[0][0] * rhs.x + self[0][1] * rhs.y + self[0][2] * rhs.z + self[0][3] * rhs.w;
+
+        result.y =
+            self[1][0] * rhs.x + self[1][1] * rhs.y + self[1][2] * rhs.z + self[1][3] * rhs.w;
+
+        result.z =
+            self[2][0] * rhs.x + self[2][1] * rhs.y + self[2][2] * rhs.z + self[2][3] * rhs.w;
+
+        result.w =
+            self[3][0] * rhs.x + self[3][1] * rhs.y + self[3][2] * rhs.z + self[3][3] * rhs.w;
 
         result
     }
@@ -242,14 +265,18 @@ mod tests {
         assert_eq!(a * b, expectation);
     }
 
-    // Scenario: A matrix multiplied by a tuple
-    //   Given the following matrix A:
-    //       | 1 | 2 | 3 | 4 |
-    //       | 2 | 4 | 4 | 2 |
-    //       | 8 | 6 | 4 | 1 |
-    //       | 0 | 0 | 0 | 1 |
-    //     And b â† tuple(1, 2, 3, 1)
-    //   Then A * b = tuple(18, 24, 33, 1)
+    #[test]
+    fn a_matrix_multiplied_by_a_tuple() {
+        let a = Matrix4::new(
+            [1., 2., 3., 4.],
+            [2., 4., 4., 2.],
+            [8., 6., 4., 1.],
+            [0., 0., 0., 1.],
+        );
+        let b = Tuple::new(1., 2., 3., 1.);
+        assert_eq!(a * b, Tuple::new(18., 24., 33., 1.));
+    }
+
     //
     // Scenario: Multiplying a matrix by the identity matrix
     //   Given the following matrix A:

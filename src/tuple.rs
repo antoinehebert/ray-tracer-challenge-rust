@@ -10,8 +10,17 @@ pub struct Tuple {
 }
 
 impl Tuple {
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Tuple {
+    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Tuple { x, y, z, w }
+    }
+
+    pub fn zero() -> Self {
+        Tuple {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+            w: 0.,
+        }
     }
 
     fn is_point(&self) -> bool {
@@ -145,6 +154,16 @@ mod tests {
 
         assert!(t.is_point());
         assert!(!t.is_vector());
+    }
+
+    #[test]
+    fn tuple_zero() {
+        let t = Tuple::zero();
+
+        assert_eq!(t.x, 0.);
+        assert_eq!(t.y, 0.);
+        assert_eq!(t.z, 0.);
+        assert_eq!(t.w, 0.);
     }
 
     #[test]
