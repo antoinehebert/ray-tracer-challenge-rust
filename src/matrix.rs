@@ -7,7 +7,7 @@ use std::ops;
 // Matrix4
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct Matrix4 {
     values: [[f32; 4]; 4],
 }
@@ -30,6 +30,15 @@ impl Matrix4 {
             [0., 0., 0., 0.],
             [0., 0., 0., 0.],
             [0., 0., 0., 0.],
+        )
+    }
+
+    fn identity() -> Self {
+        Matrix4::new(
+            [1., 0., 0., 0.],
+            [0., 1., 0., 0.],
+            [0., 0., 1., 0.],
+            [0., 0., 0., 1.],
         )
     }
 
@@ -277,14 +286,18 @@ mod tests {
         assert_eq!(a * b, Tuple::new(18., 24., 33., 1.));
     }
 
-    //
-    // Scenario: Multiplying a matrix by the identity matrix
-    //   Given the following matrix A:
-    //     | 0 | 1 |  2 |  4 |
-    //     | 1 | 2 |  4 |  8 |
-    //     | 2 | 4 |  8 | 16 |
-    //     | 4 | 8 | 16 | 32 |
-    //   Then A * identity_matrix = A
+    #[test]
+    fn multiplying_a_matrix_by_the_identity_matrix() {
+        let a = Matrix4::new(
+            [0., 1., 2., 4.],
+            [1., 2., 4., 8.],
+            [2., 4., 8., 16.],
+            [4., 8., 16., 32.],
+        );
+
+        assert_eq!(a * Matrix4::identity(), a);
+    }
+
     //
     // Scenario: Multiplying the identity matrix by a tuple
     //   Given a â† tuple(1, 2, 3, 4)
