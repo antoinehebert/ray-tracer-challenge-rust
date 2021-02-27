@@ -1,4 +1,4 @@
-// use crate::assert_almost_eq;
+use crate::assert_almost_eq;
 use crate::tuple::*;
 use crate::utils::*;
 use std::ops;
@@ -136,6 +136,10 @@ impl Matrix2 {
         Self {
             values: [[v0[0], v0[1]], [v1[0], v1[1]]],
         }
+    }
+
+    fn determinant(&self) -> f32 {
+        self[0][0] * self[1][1] - self[0][1] * self[1][0]
     }
 }
 
@@ -332,12 +336,13 @@ mod tests {
     fn transposing_the_identity_matrix() {
         assert_eq!(Matrix4::identity().transpose(), Matrix4::identity());
     }
-    //
-    // Scenario: Calculating the determinant of a 2x2 matrix
-    //   Given the following 2x2 matrix A:
-    //     |  1 | 5 |
-    //     | -3 | 2 |
-    //   Then determinant(A) = 17
+
+    #[test]
+    fn calculating_the_determinant_of_a_2x2_matrix() {
+        let a = Matrix2::new([1., 5.], [-3., 2.]);
+        assert_almost_eq!(a.determinant(), 17.);
+    }
+
     //
     // Scenario: A submatrix of a 3x3 matrix is a 2x2 matrix
     //   Given the following 3x3 matrix A:
