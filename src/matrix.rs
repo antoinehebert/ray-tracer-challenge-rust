@@ -258,6 +258,10 @@ impl Matrix3 {
 
         result
     }
+
+    fn minor(&self, row: usize, col: usize) -> f32 {
+        self.submatrix(row, col).determinant()
+    }
 }
 
 impl ops::Index<usize> for Matrix3 {
@@ -472,15 +476,16 @@ mod tests {
         let expectation = Matrix3::new([-6., 1., 6.], [-8., 8., 6.], [-7., -1., 1.]);
         assert_eq!(a.submatrix(2, 1), expectation);
     }
-    //
-    // Scenario: Calculating a minor of a 3x3 matrix
-    //   Given the following 3x3 matrix A:
-    //       |  3 |  5 |  0 |
-    //       |  2 | -1 | -7 |
-    //       |  6 | -1 |  5 |
-    //     And B â† submatrix(A, 1, 0)
-    //   Then determinant(B) = 25
-    //     And minor(A, 1, 0) = 25
+
+    #[test]
+    fn calculating_a_minor_of_a_3x3_matrix() {
+        let a = Matrix3::new([3., 5., 0.], [2., -1., -7.], [6., -1., 5.]);
+        let b = a.submatrix(1, 0);
+
+        assert_almost_eq!(b.determinant(), 25.);
+        assert_almost_eq!(a.minor(1, 0), 25.);
+    }
+
     //
     // Scenario: Calculating a cofactor of a 3x3 matrix
     //   Given the following 3x3 matrix A:
