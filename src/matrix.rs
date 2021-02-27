@@ -53,6 +53,34 @@ impl Matrix4 {
 
         result
     }
+
+    fn submatrix(&self, row: usize, col: usize) -> Matrix3 {
+        let mut result = Matrix3::zero();
+
+        let mut res_x = 0;
+        let mut res_y = 0;
+
+        for x in 0..4 {
+            if x == row {
+                continue;
+            }
+
+            for y in 0..4 {
+                if y == col {
+                    continue;
+                }
+
+                result[res_x][res_y] = self[x][y];
+
+                res_y += 1;
+            }
+
+            res_x += 1;
+            res_y = 0;
+        }
+
+        result
+    }
 }
 
 impl ops::Index<usize> for Matrix4 {
@@ -125,8 +153,11 @@ impl ops::Mul<Tuple> for Matrix4 {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Matrix2
+//
+// TODO: DRY this is the same thing as a Matrix4...
 ////////////////////////////////////////////////////////////////////////////////
 
+#[derive(Debug, Copy, Clone)]
 struct Matrix2 {
     values: [[f32; 2]; 2],
 }
@@ -136,6 +167,10 @@ impl Matrix2 {
         Self {
             values: [[v0[0], v0[1]], [v1[0], v1[1]]],
         }
+    }
+
+    fn zero() -> Self {
+        Self::new([0., 0.], [0., 0.])
     }
 
     fn determinant(&self) -> f32 {
@@ -151,10 +186,32 @@ impl ops::Index<usize> for Matrix2 {
     }
 }
 
+impl ops::IndexMut<usize> for Matrix2 {
+    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
+        &mut self.values[idx]
+    }
+}
+
+impl PartialEq for Matrix2 {
+    fn eq(&self, other: &Self) -> bool {
+        for y in 0..2 {
+            for x in 0..2 {
+                if !is_almost_equal(self[x][y], other[x][y]) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Matrix3
+//
+// TODO: DRY this is the same thing as a Matrix4...
 ////////////////////////////////////////////////////////////////////////////////
 
+#[derive(Debug, Copy, Clone)]
 struct Matrix3 {
     values: [[f32; 3]; 3],
 }
@@ -169,6 +226,38 @@ impl Matrix3 {
             ],
         }
     }
+
+    fn zero() -> Matrix3 {
+        Self::new([0., 0., 0.], [0., 0., 0.], [0., 0., 0.])
+    }
+
+    fn submatrix(&self, row: usize, col: usize) -> Matrix2 {
+        let mut result = Matrix2::zero();
+
+        let mut res_x = 0;
+        let mut res_y = 0;
+
+        for x in 0..3 {
+            if x == row {
+                continue;
+            }
+
+            for y in 0..3 {
+                if y == col {
+                    continue;
+                }
+
+                result[res_x][res_y] = self[x][y];
+
+                res_y += 1;
+            }
+
+            res_x += 1;
+            res_y = 0;
+        }
+
+        result
+    }
 }
 
 impl ops::Index<usize> for Matrix3 {
@@ -176,6 +265,25 @@ impl ops::Index<usize> for Matrix3 {
 
     fn index(&self, idx: usize) -> &Self::Output {
         &self.values[idx]
+    }
+}
+
+impl ops::IndexMut<usize> for Matrix3 {
+    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
+        &mut self.values[idx]
+    }
+}
+
+impl PartialEq for Matrix3 {
+    fn eq(&self, other: &Self) -> bool {
+        for y in 0..3 {
+            for x in 0..3 {
+                if !is_almost_equal(self[x][y], other[x][y]) {
+                    return false;
+                }
+            }
+        }
+        true
     }
 }
 
@@ -343,26 +451,27 @@ mod tests {
         assert_almost_eq!(a.determinant(), 17.);
     }
 
-    //
-    // Scenario: A submatrix of a 3x3 matrix is a 2x2 matrix
-    //   Given the following 3x3 matrix A:
-    //     |  1 | 5 |  0 |
-    //     | -3 | 2 |  7 |
-    //     |  0 | 6 | -3 |
-    //   Then submatrix(A, 0, 2) is the following 2x2 matrix:
-    //     | -3 | 2 |
-    //     |  0 | 6 |
-    //
-    // Scenario: A submatrix of a 4x4 matrix is a 3x3 matrix
-    //   Given the following 4x4 matrix A:
-    //     | -6 |  1 |  1 |  6 |
-    //     | -8 |  5 |  8 |  6 |
-    //     | -1 |  0 |  8 |  2 |
-    //     | -7 |  1 | -1 |  1 |
-    //   Then submatrix(A, 2, 1) is the following 3x3 matrix:
-    //     | -6 |  1 | 6 |
-    //     | -8 |  8 | 6 |
-    //     | -7 | -1 | 1 |
+    #[test]
+    fn a_submatrix_of_a_3x3_matrix_is_a_2x2_matrix() {
+        let a = Matrix3::new([1., 5., 0.], [-3., 2., 7.], [0., 6., -3.]);
+
+        let expectation = Matrix2::new([-3., 2.], [0., 6.]);
+
+        assert_eq!(a.submatrix(0, 2), expectation);
+    }
+
+    #[test]
+    fn a_submatrix_of_a_4x4_matrix_is_a_3x3_matrix() {
+        let a = Matrix4::new(
+            [-6., 1., 1., 6.],
+            [-8., 5., 8., 6.],
+            [-1., 0., 8., 2.],
+            [-7., 1., -1., 1.],
+        );
+
+        let expectation = Matrix3::new([-6., 1., 6.], [-8., 8., 6.], [-7., -1., 1.]);
+        assert_eq!(a.submatrix(2, 1), expectation);
+    }
     //
     // Scenario: Calculating a minor of a 3x3 matrix
     //   Given the following 3x3 matrix A:
