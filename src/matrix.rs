@@ -42,13 +42,17 @@ impl Matrix4 {
         )
     }
 
-    // fn get(&self, row: usize, col: usize) -> f32 {
-    //     self.values[row][col]
-    // }
+    fn transpose(&self) -> Self {
+        let mut result = Self::zero();
 
-    // fn set(&self, row: usize, col: usize, val: f32) {
-    //     self.values[row][col] = val;
-    // }
+        for row in 0..4 {
+            for col in 0..4 {
+                result[col][row] = self[row][col]
+            }
+        }
+
+        result
+    }
 }
 
 impl ops::Index<usize> for Matrix4 {
@@ -305,21 +309,29 @@ mod tests {
         assert_eq!(Matrix4::identity() * a, a);
     }
 
-    // Scenario: Transposing a matrix
-    //   Given the following matrix A:
-    //     | 0 | 9 | 3 | 0 |
-    //     | 9 | 8 | 0 | 8 |
-    //     | 1 | 8 | 5 | 3 |
-    //     | 0 | 0 | 5 | 8 |
-    //   Then transpose(A) is the following matrix:
-    //     | 0 | 9 | 1 | 0 |
-    //     | 9 | 8 | 8 | 0 |
-    //     | 3 | 0 | 5 | 5 |
-    //     | 0 | 8 | 3 | 8 |
-    //
-    // Scenario: Transposing the identity matrix
-    //   Given A â† transpose(identity_matrix)
-    //   Then A = identity_matrix
+    #[test]
+    fn transposing_a_matrix() {
+        let a = Matrix4::new(
+            [0., 9., 3., 0.],
+            [9., 8., 0., 8.],
+            [1., 8., 5., 3.],
+            [0., 0., 5., 8.],
+        );
+
+        let expected = Matrix4::new(
+            [0., 9., 1., 0.],
+            [9., 8., 8., 0.],
+            [3., 0., 5., 5.],
+            [0., 8., 3., 8.],
+        );
+
+        assert_eq!(a.transpose(), expected);
+    }
+
+    #[test]
+    fn transposing_the_identity_matrix() {
+        assert_eq!(Matrix4::identity().transpose(), Matrix4::identity());
+    }
     //
     // Scenario: Calculating the determinant of a 2x2 matrix
     //   Given the following 2x2 matrix A:
