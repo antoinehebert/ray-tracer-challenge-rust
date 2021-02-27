@@ -1,4 +1,4 @@
-use crate::assert_almost_eq;
+// use crate::assert_almost_eq;
 use crate::tuple::*;
 use crate::utils::*;
 use std::ops;
@@ -298,11 +298,13 @@ mod tests {
         assert_eq!(a * Matrix4::identity(), a);
     }
 
-    //
-    // Scenario: Multiplying the identity matrix by a tuple
-    //   Given a â† tuple(1, 2, 3, 4)
-    //   Then identity_matrix * a = a
-    //
+    #[test]
+    fn multiplying_the_identity_matrix_by_a_tuple() {
+        let a = Tuple::new(1., 2., 3., 4.);
+
+        assert_eq!(Matrix4::identity() * a, a);
+    }
+
     // Scenario: Transposing a matrix
     //   Given the following matrix A:
     //     | 0 | 9 | 3 | 0 |

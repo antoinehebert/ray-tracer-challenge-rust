@@ -1,7 +1,7 @@
 use crate::utils::*;
 
 use std::ops;
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Tuple {
     pub x: f32,
     pub y: f32,
