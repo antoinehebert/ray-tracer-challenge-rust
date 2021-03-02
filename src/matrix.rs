@@ -3,43 +3,34 @@ use crate::tuple::*;
 use crate::utils::*;
 use std::ops;
 
+// TODO: Use const generics when 1.51 is released, to dry the matrix implementation and only keep one!
+
 ////////////////////////////////////////////////////////////////////////////////
 // Matrix4
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Copy, Clone)]
-struct Matrix4 {
-    values: [[f32; 4]; 4],
+struct Matrix<const SIZE: usize> {
+    values: [[f32; SIZE]; SIZE],
 }
 
-impl Matrix4 {
-    fn new(v0: [f32; 4], v1: [f32; 4], v2: [f32; 4], v3: [f32; 4]) -> Self {
-        Self {
-            values: [
-                [v0[0], v0[1], v0[2], v0[3]],
-                [v1[0], v1[1], v1[2], v1[3]],
-                [v2[0], v2[1], v2[2], v2[3]],
-                [v3[0], v3[1], v3[2], v3[3]],
-            ],
-        }
+impl<const SIZE: usize> Matrix<SIZE> {
+    fn new(values: [[f32; SIZE]; SIZE]) -> Self {
+        Self { values }
     }
 
     fn zero() -> Self {
-        Matrix4::new(
-            [0., 0., 0., 0.],
-            [0., 0., 0., 0.],
-            [0., 0., 0., 0.],
-            [0., 0., 0., 0.],
-        )
+        Self::new([[0.; SIZE]; SIZE])
     }
 
     fn identity() -> Self {
-        Matrix4::new(
-            [1., 0., 0., 0.],
-            [0., 1., 0., 0.],
-            [0., 0., 1., 0.],
-            [0., 0., 0., 1.],
-        )
+        let mut result = Self::zero();
+
+        for v in 0..SIZE {
+            result[v][v] = 1.;
+        }
+
+        result
     }
 
     fn transpose(&self) -> Self {
@@ -54,18 +45,19 @@ impl Matrix4 {
         result
     }
 
-    fn submatrix(&self, row: usize, col: usize) -> Matrix3 {
-        let mut result = Matrix3::zero();
+    // Using RES_SIZE here instead of SIZE-1 because it doesn't work yet...
+    fn submatrix<const RES_SIZE: usize>(&self, row: usize, col: usize) -> Matrix<RES_SIZE> {
+        let mut result = Matrix::<RES_SIZE>::zero();
 
         let mut res_x = 0;
         let mut res_y = 0;
 
-        for x in 0..4 {
+        for x in 0..SIZE {
             if x == row {
                 continue;
             }
 
-            for y in 0..4 {
+            for y in 0..SIZE {
                 if y == col {
                     continue;
                 }
@@ -81,26 +73,45 @@ impl Matrix4 {
 
         result
     }
+
+    fn determinant(&self) -> f32 {
+        self[0][0] * self[1][1] - self[0][1] * self[1][0]
+    }
+
+    // Using RES_SIZE here instead of SIZE-1 because it doesn't work yet...
+    fn minor<const RES_SIZE: usize>(&self, row: usize, col: usize) -> f32 {
+        self.submatrix::<RES_SIZE>(row, col).determinant()
+    }
+
+    // Using RES_SIZE here instead of SIZE-1 because it doesn't work yet...
+    fn cofactor<const RES_SIZE: usize>(&self, row: usize, col: usize) -> f32 {
+        let result = self.minor::<RES_SIZE>(row, col);
+        if (row + col) % 2 == 0 {
+            result
+        } else {
+            -result
+        }
+    }
 }
 
-impl ops::Index<usize> for Matrix4 {
-    type Output = [f32; 4];
+impl<const SIZE: usize> ops::Index<usize> for Matrix<SIZE> {
+    type Output = [f32; SIZE];
 
     fn index(&self, idx: usize) -> &Self::Output {
         &self.values[idx]
     }
 }
 
-impl ops::IndexMut<usize> for Matrix4 {
+impl<const SIZE: usize> ops::IndexMut<usize> for Matrix<SIZE> {
     fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
         &mut self.values[idx]
     }
 }
 
-impl PartialEq for Matrix4 {
+impl<const SIZE: usize> PartialEq for Matrix<SIZE> {
     fn eq(&self, other: &Self) -> bool {
-        for y in 0..4 {
-            for x in 0..4 {
+        for y in 0..SIZE {
+            for x in 0..SIZE {
                 if !is_almost_equal(self[x][y], other[x][y]) {
                     return false;
                 }
@@ -110,18 +121,19 @@ impl PartialEq for Matrix4 {
     }
 }
 
-impl ops::Mul for Matrix4 {
+impl<const SIZE: usize> ops::Mul for Matrix<SIZE> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let mut result = Matrix4::zero();
+        let mut result = Self::zero();
 
-        for row in 0..4 {
-            for col in 0..4 {
-                result[row][col] = self[row][0] * rhs[0][col]
-                    + self[row][1] * rhs[1][col]
-                    + self[row][2] * rhs[2][col]
-                    + self[row][3] * rhs[3][col];
+        for row in 0..SIZE {
+            for col in 0..SIZE {
+                let mut val = 0.;
+                for n in 0..SIZE {
+                    val += self[row][n] * rhs[n][col];
+                }
+                result[row][col] = val;
             }
         }
 
@@ -129,7 +141,7 @@ impl ops::Mul for Matrix4 {
     }
 }
 
-impl ops::Mul<Tuple> for Matrix4 {
+impl ops::Mul<Tuple> for Matrix<4> {
     type Output = Tuple;
 
     fn mul(self, rhs: Tuple) -> Self::Output {
@@ -151,171 +163,18 @@ impl ops::Mul<Tuple> for Matrix4 {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Matrix2
-//
-// TODO: DRY this is the same thing as a Matrix4...
-////////////////////////////////////////////////////////////////////////////////
-
-#[derive(Debug, Copy, Clone)]
-struct Matrix2 {
-    values: [[f32; 2]; 2],
-}
-
-impl Matrix2 {
-    fn new(v0: [f32; 2], v1: [f32; 2]) -> Self {
-        Self {
-            values: [[v0[0], v0[1]], [v1[0], v1[1]]],
-        }
-    }
-
-    fn zero() -> Self {
-        Self::new([0., 0.], [0., 0.])
-    }
-
-    fn determinant(&self) -> f32 {
-        self[0][0] * self[1][1] - self[0][1] * self[1][0]
-    }
-}
-
-impl ops::Index<usize> for Matrix2 {
-    type Output = [f32; 2];
-
-    fn index(&self, idx: usize) -> &Self::Output {
-        &self.values[idx]
-    }
-}
-
-impl ops::IndexMut<usize> for Matrix2 {
-    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
-        &mut self.values[idx]
-    }
-}
-
-impl PartialEq for Matrix2 {
-    fn eq(&self, other: &Self) -> bool {
-        for y in 0..2 {
-            for x in 0..2 {
-                if !is_almost_equal(self[x][y], other[x][y]) {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Matrix3
-//
-// TODO: DRY this is the same thing as a Matrix4...
-////////////////////////////////////////////////////////////////////////////////
-
-#[derive(Debug, Copy, Clone)]
-struct Matrix3 {
-    values: [[f32; 3]; 3],
-}
-
-impl Matrix3 {
-    fn new(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> Self {
-        Self {
-            values: [
-                [v0[0], v0[1], v0[2]],
-                [v1[0], v1[1], v1[2]],
-                [v2[0], v2[1], v2[2]],
-            ],
-        }
-    }
-
-    fn zero() -> Matrix3 {
-        Self::new([0., 0., 0.], [0., 0., 0.], [0., 0., 0.])
-    }
-
-    fn submatrix(&self, row: usize, col: usize) -> Matrix2 {
-        let mut result = Matrix2::zero();
-
-        let mut res_x = 0;
-        let mut res_y = 0;
-
-        for x in 0..3 {
-            if x == row {
-                continue;
-            }
-
-            for y in 0..3 {
-                if y == col {
-                    continue;
-                }
-
-                result[res_x][res_y] = self[x][y];
-
-                res_y += 1;
-            }
-
-            res_x += 1;
-            res_y = 0;
-        }
-
-        result
-    }
-
-    fn minor(&self, row: usize, col: usize) -> f32 {
-        self.submatrix(row, col).determinant()
-    }
-
-    fn cofactor(&self, row: usize, col: usize) -> f32 {
-        let result = self.minor(row, col);
-        if (row + col) % 2 == 0 {
-            result
-        } else {
-            -result
-        }
-    }
-}
-
-impl ops::Index<usize> for Matrix3 {
-    type Output = [f32; 3];
-
-    fn index(&self, idx: usize) -> &Self::Output {
-        &self.values[idx]
-    }
-}
-
-impl ops::IndexMut<usize> for Matrix3 {
-    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
-        &mut self.values[idx]
-    }
-}
-
-impl PartialEq for Matrix3 {
-    fn eq(&self, other: &Self) -> bool {
-        for y in 0..3 {
-            for x in 0..3 {
-                if !is_almost_equal(self[x][y], other[x][y]) {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Tests
-////////////////////////////////////////////////////////////////////////////////
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn constructing_and_inspecting_a_4x4_matrix() {
-        let m = Matrix4::new(
+        let m = Matrix::new([
             [1.0, 2.0, 3.0, 4.0],
             [5.5, 6.5, 7.5, 8.5],
             [9.0, 10.0, 11.0, 12.0],
             [13.5, 14.5, 15.5, 16.5],
-        );
+        ]);
 
         assert_eq!(m[0][0], 1.);
         assert_eq!(m[0][3], 4.);
@@ -328,7 +187,7 @@ mod tests {
 
     #[test]
     fn a_2x2_matrix_ought_to_be_representable() {
-        let m = Matrix2::new([-3., 5.], [1., -2.]);
+        let m = Matrix::new([[-3., 5.], [1., -2.]]);
         assert_eq!(m[0][0], -3.);
         assert_eq!(m[0][1], 5.);
         assert_eq!(m[1][0], 1.);
@@ -337,7 +196,7 @@ mod tests {
 
     #[test]
     fn a_3x3_matrix_ought_to_be_representable() {
-        let m = Matrix3::new([-3., 5., 0.], [1., -2., -7.], [0., 1., 1.]);
+        let m = Matrix::new([[-3., 5., 0.], [1., -2., -7.], [0., 1., 1.]]);
 
         assert_eq!(m[0][0], -3.);
         assert_eq!(m[1][1], -2.);
@@ -346,187 +205,190 @@ mod tests {
 
     #[test]
     fn matrix_equality_with_identical_matrices() {
-        let a = Matrix4::new(
+        let a = Matrix::new([
             [1., 2., 3., 4.],
             [5., 6., 7., 8.],
             [9., 8., 7., 6.],
             [5., 4., 3., 2.],
-        );
-        let b = Matrix4::new(
+        ]);
+        let b = Matrix::new([
             [1., 2., 3., 4.],
             [5., 6., 7., 8.],
             [9., 8., 7., 6.],
             [5., 4., 3., 2.],
-        );
+        ]);
         assert!(a == b);
     }
 
     #[test]
     fn matrix_equality_with_different_matrices() {
-        let a = Matrix4::new(
+        let a = Matrix::new([
             [1., 2., 3., 4.],
             [5., 6., 7., 8.],
             [9., 8., 7., 6.],
             [5., 4., 3., 2.],
-        );
-        let b = Matrix4::new(
+        ]);
+        let b = Matrix::new([
             [2., 2., 3., 4.],
             [5., 6., 7., 8.],
             [9., 8., 7., 6.],
             [5., 4., 3., 1.],
-        );
+        ]);
         assert!(a != b);
     }
 
     #[test]
     fn multiplying_two_matrices() {
-        let a = Matrix4::new(
+        let a = Matrix::new([
             [1., 2., 3., 4.],
             [5., 6., 7., 8.],
             [9., 8., 7., 6.],
             [5., 4., 3., 2.],
-        );
-        let b = Matrix4::new(
+        ]);
+        let b = Matrix::new([
             [-2., 1., 2., 3.],
             [3., 2., 1., -1.],
             [4., 3., 6., 5.],
             [1., 2., 7., 8.],
-        );
+        ]);
 
-        let expectation = Matrix4::new(
+        let expectation = Matrix::new([
             [20., 22., 50., 48.],
             [44., 54., 114., 108.],
             [40., 58., 110., 102.],
             [16., 26., 46., 42.],
-        );
+        ]);
 
         assert_eq!(a * b, expectation);
     }
 
     #[test]
     fn a_matrix_multiplied_by_a_tuple() {
-        let a = Matrix4::new(
+        let a = Matrix::new([
             [1., 2., 3., 4.],
             [2., 4., 4., 2.],
             [8., 6., 4., 1.],
             [0., 0., 0., 1.],
-        );
+        ]);
         let b = Tuple::new(1., 2., 3., 1.);
         assert_eq!(a * b, Tuple::new(18., 24., 33., 1.));
     }
 
     #[test]
     fn multiplying_a_matrix_by_the_identity_matrix() {
-        let a = Matrix4::new(
+        let a = Matrix::new([
             [0., 1., 2., 4.],
             [1., 2., 4., 8.],
             [2., 4., 8., 16.],
             [4., 8., 16., 32.],
-        );
+        ]);
 
-        assert_eq!(a * Matrix4::identity(), a);
+        assert_eq!(a * Matrix::identity(), a);
     }
 
     #[test]
     fn multiplying_the_identity_matrix_by_a_tuple() {
         let a = Tuple::new(1., 2., 3., 4.);
 
-        assert_eq!(Matrix4::identity() * a, a);
+        assert_eq!(Matrix::identity() * a, a);
     }
 
     #[test]
     fn transposing_a_matrix() {
-        let a = Matrix4::new(
+        let a = Matrix::new([
             [0., 9., 3., 0.],
             [9., 8., 0., 8.],
             [1., 8., 5., 3.],
             [0., 0., 5., 8.],
-        );
+        ]);
 
-        let expected = Matrix4::new(
+        let expected = Matrix::new([
             [0., 9., 1., 0.],
             [9., 8., 8., 0.],
             [3., 0., 5., 5.],
             [0., 8., 3., 8.],
-        );
+        ]);
 
         assert_eq!(a.transpose(), expected);
     }
 
     #[test]
     fn transposing_the_identity_matrix() {
-        assert_eq!(Matrix4::identity().transpose(), Matrix4::identity());
+        assert_eq!(Matrix::identity().transpose(), Matrix::<4>::identity());
     }
 
     #[test]
     fn calculating_the_determinant_of_a_2x2_matrix() {
-        let a = Matrix2::new([1., 5.], [-3., 2.]);
+        let a = Matrix::new([[1., 5.], [-3., 2.]]);
         assert_almost_eq!(a.determinant(), 17.);
     }
 
     #[test]
     fn a_submatrix_of_a_3x3_matrix_is_a_2x2_matrix() {
-        let a = Matrix3::new([1., 5., 0.], [-3., 2., 7.], [0., 6., -3.]);
+        let a = Matrix::new([[1., 5., 0.], [-3., 2., 7.], [0., 6., -3.]]);
 
-        let expectation = Matrix2::new([-3., 2.], [0., 6.]);
+        let expectation = Matrix::new([[-3., 2.], [0., 6.]]);
 
         assert_eq!(a.submatrix(0, 2), expectation);
     }
 
     #[test]
     fn a_submatrix_of_a_4x4_matrix_is_a_3x3_matrix() {
-        let a = Matrix4::new(
+        let a = Matrix::new([
             [-6., 1., 1., 6.],
             [-8., 5., 8., 6.],
             [-1., 0., 8., 2.],
             [-7., 1., -1., 1.],
-        );
+        ]);
 
-        let expectation = Matrix3::new([-6., 1., 6.], [-8., 8., 6.], [-7., -1., 1.]);
+        let expectation = Matrix::new([[-6., 1., 6.], [-8., 8., 6.], [-7., -1., 1.]]);
         assert_eq!(a.submatrix(2, 1), expectation);
     }
 
     #[test]
     fn calculating_a_minor_of_a_3x3_matrix() {
-        let a = Matrix3::new([3., 5., 0.], [2., -1., -7.], [6., -1., 5.]);
-        let b = a.submatrix(1, 0);
+        let a = Matrix::new([[3., 5., 0.], [2., -1., -7.], [6., -1., 5.]]);
+        let b = a.submatrix::<2>(1, 0);
 
         assert_almost_eq!(b.determinant(), 25.);
-        assert_almost_eq!(a.minor(1, 0), 25.);
+        assert_almost_eq!(a.minor::<2>(1, 0), 25.);
     }
 
     #[test]
     fn calculating_a_cofactor_of_a_3x3_matrix() {
-        let a = Matrix3::new([3., 5., 0.], [2., -1., -7.], [6., -1., 5.]);
+        let a = Matrix::new([[3., 5., 0.], [2., -1., -7.], [6., -1., 5.]]);
 
-        assert_almost_eq!(a.minor(0, 0), -12.);
-        assert_almost_eq!(a.cofactor(0, 0), -12.);
-        assert_almost_eq!(a.minor(1, 0), 25.);
-        assert_almost_eq!(a.cofactor(1, 0), -25.);
+        assert_almost_eq!(a.minor::<2>(0, 0), -12.);
+        assert_almost_eq!(a.cofactor::<2>(0, 0), -12.);
+        assert_almost_eq!(a.minor::<2>(1, 0), 25.);
+        assert_almost_eq!(a.cofactor::<2>(1, 0), -25.);
     }
 
-    //
-    // Scenario: Calculating the determinant of a 3x3 matrix
-    //   Given the following 3x3 matrix A:
-    //     |  1 |  2 |  6 |
-    //     | -5 |  8 | -4 |
-    //     |  2 |  6 |  4 |
-    //   Then cofactor(A, 0, 0) = 56
-    //     And cofactor(A, 0, 1) = 12
-    //     And cofactor(A, 0, 2) = -46
-    //     And determinant(A) = -196
-    //
-    // Scenario: Calculating the determinant of a 4x4 matrix
-    //   Given the following 4x4 matrix A:
-    //     | -2 | -8 |  3 |  5 |
-    //     | -3 |  1 |  7 |  3 |
-    //     |  1 |  2 | -9 |  6 |
-    //     | -6 |  7 |  7 | -9 |
-    //   Then cofactor(A, 0, 0) = 690
-    //     And cofactor(A, 0, 1) = 447
-    //     And cofactor(A, 0, 2) = 210
-    //     And cofactor(A, 0, 3) = 51
-    //     And determinant(A) = -4071
+    // #[test]
+    // fn calculating_the_determinant_of_a_3x3_matrix() {
+    //     let a = Matrix3::new([1., 2., 6.], [-5., 8., -4.], [2., 6., 4.]);
+    //     assert_almost_eq!(a.cofactor(0, 0), 56.);
+    //     assert_almost_eq!(a.cofactor(0, 1), 12.);
+    //     assert_almost_eq!(a.cofactor(0, 2), -46.);
+    //     assert_almost_eq!(a.determinant(), -196.);
+    // }
+
+    // #[test]
+    // fn calculating_the_determinant_of_a_4x4_matrix() {
+    //     let a = Matrix4::new(
+    //         [-2., -8., 3., 5.],
+    //         [-3., 1., 7., 3.],
+    //         [1., 2., -9., 6.],
+    //         [-6., 7., 7., -9.],
+    //     );
+
+    //     assert_almost_eq!(a.cofactor(0, 0), 690.);
+    //     assert_almost_eq!(a.cofactor(0, 1), 447.);
+    //     assert_almost_eq!(a.cofactor(0, 2), 210.);
+    //     assert_almost_eq!(a.cofactor(0, 3), 51.);
+    //     assert_almost_eq!(a.determinant(), -4071.);
+    // }
+
     //
     // Scenario: Testing an invertible matrix for invertibility
     //   Given the following 4x4 matrix A:
