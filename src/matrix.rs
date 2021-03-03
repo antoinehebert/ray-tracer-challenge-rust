@@ -45,9 +45,23 @@ impl<const SIZE: usize> Matrix<SIZE> {
         result
     }
 
-    // Using RES_SIZE here instead of SIZE-1 because it doesn't work yet...
-    fn submatrix<const RES_SIZE: usize>(&self, row: usize, col: usize) -> Matrix<RES_SIZE> {
-        let mut result = Matrix::<RES_SIZE>::zero();
+    fn determinant(&self) -> f32 {
+        let mut result = 0.;
+        if SIZE == 2 {
+            result = self[0][0] * self[1][1] - self[0][1] * self[1][0];
+        } else {
+            for column in 0..SIZE {
+                result += self.values[0][column] * self.cofactor(0, column);
+            }
+        }
+
+        result
+    }
+
+    // FIXME: This is a hack because SIZE-1 doesn't work with const generics yet...
+    fn submatrix3(&self, row: usize, col: usize) -> Matrix<3> {
+        assert!(SIZE == 4, "Called submatrix3 on a different size than 4!");
+        let mut result = Matrix::<3>::zero();
 
         let mut res_x = 0;
         let mut res_y = 0;
@@ -74,18 +88,53 @@ impl<const SIZE: usize> Matrix<SIZE> {
         result
     }
 
-    fn determinant(&self) -> f32 {
-        self[0][0] * self[1][1] - self[0][1] * self[1][0]
+    // FIXME: This is a hack because SIZE-1 doesn't work with const generics yet...
+    fn submatrix2(&self, row: usize, col: usize) -> Matrix<2> {
+        assert!(SIZE == 3, "Called submatrix2 on a different size than 3!");
+
+        let mut result = Matrix::<2>::zero();
+
+        let mut res_x = 0;
+        let mut res_y = 0;
+
+        for x in 0..SIZE {
+            if x == row {
+                continue;
+            }
+
+            for y in 0..SIZE {
+                if y == col {
+                    continue;
+                }
+
+                result[res_x][res_y] = self[x][y];
+
+                res_y += 1;
+            }
+
+            res_x += 1;
+            res_y = 0;
+        }
+
+        result
+    }
+
+    fn minor(&self, row: usize, col: usize) -> f32 {
+        if SIZE == 4 {
+            self.submatrix3(row, col).determinant()
+        } else if SIZE == 3 {
+            self.submatrix2(row, col).determinant()
+        } else {
+            panic!(
+                "Unsupported SIZE={} used in Matrix::minor, supported values are: 3, 4.",
+                SIZE
+            )
+        }
     }
 
     // Using RES_SIZE here instead of SIZE-1 because it doesn't work yet...
-    fn minor<const RES_SIZE: usize>(&self, row: usize, col: usize) -> f32 {
-        self.submatrix::<RES_SIZE>(row, col).determinant()
-    }
-
-    // Using RES_SIZE here instead of SIZE-1 because it doesn't work yet...
-    fn cofactor<const RES_SIZE: usize>(&self, row: usize, col: usize) -> f32 {
-        let result = self.minor::<RES_SIZE>(row, col);
+    fn cofactor(&self, row: usize, col: usize) -> f32 {
+        let result = self.minor(row, col);
         if (row + col) % 2 == 0 {
             result
         } else {
@@ -329,7 +378,7 @@ mod tests {
 
         let expectation = Matrix::new([[-3., 2.], [0., 6.]]);
 
-        assert_eq!(a.submatrix(0, 2), expectation);
+        assert_eq!(a.submatrix2(0, 2), expectation);
     }
 
     #[test]
@@ -342,52 +391,52 @@ mod tests {
         ]);
 
         let expectation = Matrix::new([[-6., 1., 6.], [-8., 8., 6.], [-7., -1., 1.]]);
-        assert_eq!(a.submatrix(2, 1), expectation);
+        assert_eq!(a.submatrix3(2, 1), expectation);
     }
 
     #[test]
     fn calculating_a_minor_of_a_3x3_matrix() {
         let a = Matrix::new([[3., 5., 0.], [2., -1., -7.], [6., -1., 5.]]);
-        let b = a.submatrix::<2>(1, 0);
+        let b = a.submatrix2(1, 0);
 
         assert_almost_eq!(b.determinant(), 25.);
-        assert_almost_eq!(a.minor::<2>(1, 0), 25.);
+        assert_almost_eq!(a.minor(1, 0), 25.);
     }
 
     #[test]
     fn calculating_a_cofactor_of_a_3x3_matrix() {
         let a = Matrix::new([[3., 5., 0.], [2., -1., -7.], [6., -1., 5.]]);
 
-        assert_almost_eq!(a.minor::<2>(0, 0), -12.);
-        assert_almost_eq!(a.cofactor::<2>(0, 0), -12.);
-        assert_almost_eq!(a.minor::<2>(1, 0), 25.);
-        assert_almost_eq!(a.cofactor::<2>(1, 0), -25.);
+        assert_almost_eq!(a.minor(0, 0), -12.);
+        assert_almost_eq!(a.cofactor(0, 0), -12.);
+        assert_almost_eq!(a.minor(1, 0), 25.);
+        assert_almost_eq!(a.cofactor(1, 0), -25.);
     }
 
-    // #[test]
-    // fn calculating_the_determinant_of_a_3x3_matrix() {
-    //     let a = Matrix3::new([1., 2., 6.], [-5., 8., -4.], [2., 6., 4.]);
-    //     assert_almost_eq!(a.cofactor(0, 0), 56.);
-    //     assert_almost_eq!(a.cofactor(0, 1), 12.);
-    //     assert_almost_eq!(a.cofactor(0, 2), -46.);
-    //     assert_almost_eq!(a.determinant(), -196.);
-    // }
+    #[test]
+    fn calculating_the_determinant_of_a_3x3_matrix() {
+        let a = Matrix::<3>::new([[1., 2., 6.], [-5., 8., -4.], [2., 6., 4.]]);
+        assert_almost_eq!(a.cofactor(0, 0), 56.);
+        assert_almost_eq!(a.cofactor(0, 1), 12.);
+        assert_almost_eq!(a.cofactor(0, 2), -46.);
+        assert_almost_eq!(a.determinant(), -196.);
+    }
 
-    // #[test]
-    // fn calculating_the_determinant_of_a_4x4_matrix() {
-    //     let a = Matrix4::new(
-    //         [-2., -8., 3., 5.],
-    //         [-3., 1., 7., 3.],
-    //         [1., 2., -9., 6.],
-    //         [-6., 7., 7., -9.],
-    //     );
+    #[test]
+    fn calculating_the_determinant_of_a_4x4_matrix() {
+        let a = Matrix::<4>::new([
+            [-2., -8., 3., 5.],
+            [-3., 1., 7., 3.],
+            [1., 2., -9., 6.],
+            [-6., 7., 7., -9.],
+        ]);
 
-    //     assert_almost_eq!(a.cofactor(0, 0), 690.);
-    //     assert_almost_eq!(a.cofactor(0, 1), 447.);
-    //     assert_almost_eq!(a.cofactor(0, 2), 210.);
-    //     assert_almost_eq!(a.cofactor(0, 3), 51.);
-    //     assert_almost_eq!(a.determinant(), -4071.);
-    // }
+        assert_almost_eq!(a.cofactor(0, 0), 690.);
+        assert_almost_eq!(a.cofactor(0, 1), 447.);
+        assert_almost_eq!(a.cofactor(0, 2), 210.);
+        assert_almost_eq!(a.cofactor(0, 3), 51.);
+        assert_almost_eq!(a.determinant(), -4071.);
+    }
 
     //
     // Scenario: Testing an invertible matrix for invertibility
