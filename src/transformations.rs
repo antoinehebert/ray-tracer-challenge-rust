@@ -20,8 +20,52 @@ fn scaling(x: f32, y: f32, z: f32) -> Matrix<4> {
     result
 }
 
+fn rotation_x(rad: f32) -> Matrix<4> {
+    let mut result = Matrix::<4>::identity();
+
+    let cos = rad.cos();
+    result[1][1] = cos;
+    result[2][2] = cos;
+
+    let sin = rad.sin();
+    result[1][2] = -sin;
+    result[2][1] = sin;
+
+    result
+}
+
+fn rotation_y(rad: f32) -> Matrix<4> {
+    let mut result = Matrix::<4>::identity();
+
+    let cos = rad.cos();
+    result[0][0] = cos;
+    result[2][2] = cos;
+
+    let sin = rad.sin();
+    result[0][2] = sin;
+    result[2][0] = -sin;
+
+    result
+}
+
+fn rotation_z(rad: f32) -> Matrix<4> {
+    let mut result = Matrix::<4>::identity();
+
+    let cos = rad.cos();
+    result[0][0] = cos;
+    result[1][1] = cos;
+
+    let sin = rad.sin();
+    result[0][1] = -sin;
+    result[1][0] = sin;
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::PI;
+
     use super::*;
 
     #[test]
@@ -77,32 +121,55 @@ mod tests {
         assert_eq!(transform * p, Tuple::point(-2., 3., 4.));
     }
 
-    // # Scenario: Rotating a point around the x axis
-    // #   Given p â† point(0, 1, 0)
-    // #     And half_quarter â† rotation_x(Ï€ / 4)
-    // #     And full_quarter â† rotation_x(Ï€ / 2)
-    // #   Then half_quarter * p = point(0, âˆš2/2, âˆš2/2)
-    // #     And full_quarter * p = point(0, 0, 1)
+    #[test]
+    fn rotating_a_point_around_the_x_axis() {
+        let p = Tuple::point(0., 1., 0.);
+        let half_quarter = rotation_x(PI / 4.);
+        let full_quarter = rotation_x(PI / 2.);
 
-    // # Scenario: The inverse of an x-rotation rotates in the opposite direction
-    // #   Given p â† point(0, 1, 0)
-    // #     And half_quarter â† rotation_x(Ï€ / 4)
-    // #     And inv â† inverse(half_quarter)
-    // #   Then inv * p = point(0, âˆš2/2, -âˆš2/2)
+        assert_eq!(
+            half_quarter * p,
+            Tuple::point(0., (2. as f32).sqrt() / 2., (2. as f32).sqrt() / 2.)
+        );
+        assert_eq!(full_quarter * p, Tuple::point(0., 0., 1.));
+    }
 
-    // # Scenario: Rotating a point around the y axis
-    // #   Given p â† point(0, 0, 1)
-    // #     And half_quarter â† rotation_y(Ï€ / 4)
-    // #     And full_quarter â† rotation_y(Ï€ / 2)
-    // #   Then half_quarter * p = point(âˆš2/2, 0, âˆš2/2)
-    // #     And full_quarter * p = point(1, 0, 0)
+    #[test]
+    fn the_inverse_of_an_x_rotation_rotates_in_the_opposite_direction() {
+        let p = Tuple::point(0., 1., 0.);
+        let half_quarter = rotation_x(PI / 4.);
+        let inv = half_quarter.inverse().expect("invertible");
+        assert_eq!(
+            inv * p,
+            Tuple::point(0., (2. as f32).sqrt() / 2., -(2. as f32).sqrt() / 2.)
+        );
+    }
 
-    // # Scenario: Rotating a point around the z axis
-    // #   Given p â† point(0, 1, 0)
-    // #     And half_quarter â† rotation_z(Ï€ / 4)
-    // #     And full_quarter â† rotation_z(Ï€ / 2)
-    // #   Then half_quarter * p = point(-âˆš2/2, âˆš2/2, 0)
-    // #     And full_quarter * p = point(-1, 0, 0)
+    #[test]
+    fn rotating_a_point_around_the_y_axis() {
+        let p = Tuple::point(0., 0., 1.);
+        let half_quarter = rotation_y(PI / 4.);
+        let full_quarter = rotation_y(PI / 2.);
+
+        assert_eq!(
+            half_quarter * p,
+            Tuple::point((2. as f32).sqrt() / 2., 0., (2. as f32).sqrt() / 2.)
+        );
+        assert_eq!(full_quarter * p, Tuple::point(1., 0., 0.));
+    }
+
+    #[test]
+    fn rotating_a_point_around_the_z_axis() {
+        let p = Tuple::point(0., 1., 0.);
+        let half_quarter = rotation_z(PI / 4.);
+        let full_quarter = rotation_z(PI / 2.);
+
+        assert_eq!(
+            half_quarter * p,
+            Tuple::point(-(2. as f32).sqrt() / 2., (2. as f32).sqrt() / 2., 0.)
+        );
+        assert_eq!(full_quarter * p, Tuple::point(-1., 0., 0.));
+    }
 
     // # Scenario: A shearing transformation moves x in proportion to y
     // #   Given transform â† shearing(1, 0, 0, 0, 0, 0)
