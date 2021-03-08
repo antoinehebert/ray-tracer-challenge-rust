@@ -31,11 +31,11 @@ impl Tuple {
         self.w == 0.0
     }
 
-    fn point(x: f32, y: f32, z: f32) -> Tuple {
+    pub fn point(x: f32, y: f32, z: f32) -> Tuple {
         Tuple::new(x, y, z, 1.0)
     }
 
-    fn vector(x: f32, y: f32, z: f32) -> Tuple {
+    pub fn vector(x: f32, y: f32, z: f32) -> Tuple {
         Tuple::new(x, y, z, 0.0)
     }
 

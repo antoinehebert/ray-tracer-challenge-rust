@@ -10,20 +10,20 @@ use std::ops;
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Copy, Clone)]
-struct Matrix<const SIZE: usize> {
+pub struct Matrix<const SIZE: usize> {
     values: [[f32; SIZE]; SIZE],
 }
 
 impl<const SIZE: usize> Matrix<SIZE> {
-    fn new(values: [[f32; SIZE]; SIZE]) -> Self {
+    pub fn new(values: [[f32; SIZE]; SIZE]) -> Self {
         Self { values }
     }
 
-    fn zero() -> Self {
+    pub fn zero() -> Self {
         Self::new([[0.; SIZE]; SIZE])
     }
 
-    fn identity() -> Self {
+    pub fn identity() -> Self {
         let mut result = Self::zero();
 
         for v in 0..SIZE {
@@ -142,7 +142,7 @@ impl<const SIZE: usize> Matrix<SIZE> {
         }
     }
 
-    fn inverse(&self) -> Option<Self> {
+    pub fn inverse(&self) -> Option<Self> {
         // Fail if not invertible, should we use strict equality?
         if is_almost_equal(self.determinant(), 0.) {
             return None;
