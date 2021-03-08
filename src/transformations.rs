@@ -10,6 +10,16 @@ fn translation(x: f32, y: f32, z: f32) -> Matrix<4> {
     result
 }
 
+fn scaling(x: f32, y: f32, z: f32) -> Matrix<4> {
+    let mut result = Matrix::<4>::identity();
+
+    result[0][0] = x;
+    result[1][1] = y;
+    result[2][2] = z;
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -38,26 +48,34 @@ mod tests {
         assert_eq!(transform * v, v);
     }
 
-    // # Scenario: A scaling matrix applied to a point
-    // #   Given transform â† scaling(2, 3, 4)
-    // #     And p â† point(-4, 6, 8)
-    // #    Then transform * p = point(-8, 18, 32)
+    #[test]
+    fn a_scaling_matrix_applied_to_a_point() {
+        let transform = scaling(2., 3., 4.);
+        let p = Tuple::point(-4., 6., 8.);
+        assert_eq!(transform * p, Tuple::point(-8., 18., 32.));
+    }
 
-    // # Scenario: A scaling matrix applied to a vector
-    // #   Given transform â† scaling(2, 3, 4)
-    // #     And v â† vector(-4, 6, 8)
-    // #    Then transform * v = vector(-8, 18, 32)
+    #[test]
+    fn a_scaling_matrix_applied_to_a_vector() {
+        let transform = scaling(2., 3., 4.);
+        let v = Tuple::vector(-4., 6., 8.);
+        assert_eq!(transform * v, Tuple::vector(-8., 18., 32.));
+    }
 
-    // # Scenario: Multiplying by the inverse of a scaling matrix
-    // #   Given transform â† scaling(2, 3, 4)
-    // #     And inv â† inverse(transform)
-    // #     And v â† vector(-4, 6, 8)
-    // #    Then inv * v = vector(-2, 2, 2)
+    #[test]
+    fn multiplying_by_the_inverse_of_a_scaling_matrix() {
+        let transform = scaling(2., 3., 4.);
+        let inv = transform.inverse().expect("invertible");
+        let v = Tuple::vector(-4., 6., 8.);
+        assert_eq!(inv * v, Tuple::vector(-2., 2., 2.));
+    }
 
-    // # Scenario: Reflection is scaling by a negative value
-    // #   Given transform â† scaling(-1, 1, 1)
-    // #     And p â† point(2, 3, 4)
-    // #    Then transform * p = point(-2, 3, 4)
+    #[test]
+    fn reflection_is_scaling_by_a_negative_value() {
+        let transform = scaling(-1., 1., 1.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(-2., 3., 4.));
+    }
 
     // # Scenario: Rotating a point around the x axis
     // #   Given p â† point(0, 1, 0)
