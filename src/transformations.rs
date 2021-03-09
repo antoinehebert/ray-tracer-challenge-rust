@@ -62,6 +62,21 @@ fn rotation_z(rad: f32) -> Matrix<4> {
     result
 }
 
+fn shearing(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Matrix<4> {
+    let mut result = Matrix::<4>::identity();
+
+    result[0][1] = xy;
+    result[0][2] = xz;
+
+    result[1][0] = yx;
+    result[1][2] = yz;
+
+    result[2][0] = zx;
+    result[2][1] = zy;
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use std::f32::consts::PI;
@@ -171,84 +186,96 @@ mod tests {
         assert_eq!(full_quarter * p, Tuple::point(-1., 0., 0.));
     }
 
-    // # Scenario: A shearing transformation moves x in proportion to y
-    // #   Given transform â† shearing(1, 0, 0, 0, 0, 0)
-    // #     And p â† point(2, 3, 4)
-    // #   Then transform * p = point(5, 3, 4)
+    #[test]
+    fn a_shearing_transformation_moves_x_in_proportion_to_y() {
+        let transform = shearing(1., 0., 0., 0., 0., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(5., 3., 4.));
+    }
 
-    // # Scenario: A shearing transformation moves x in proportion to z
-    // #   Given transform â† shearing(0, 1, 0, 0, 0, 0)
-    // #     And p â† point(2, 3, 4)
-    // #   Then transform * p = point(6, 3, 4)
+    #[test]
+    fn a_shearing_transformation_moves_x_in_proportion_to_z() {
+        let transform = shearing(0., 1., 0., 0., 0., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(6., 3., 4.));
+    }
 
-    // # Scenario: A shearing transformation moves y in proportion to x
-    // #   Given transform â† shearing(0, 0, 1, 0, 0, 0)
-    // #     And p â† point(2, 3, 4)
-    // #   Then transform * p = point(2, 5, 4)
+    #[test]
+    fn a_shearing_transformation_moves_y_in_proportion_to_x() {
+        let transform = shearing(0., 0., 1., 0., 0., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(2., 5., 4.));
+    }
 
-    // # Scenario: A shearing transformation moves y in proportion to z
-    // #   Given transform â† shearing(0, 0, 0, 1, 0, 0)
-    // #     And p â† point(2, 3, 4)
-    // #   Then transform * p = point(2, 7, 4)
+    #[test]
+    fn a_shearing_transformation_moves_y_in_proportion_to_z() {
+        let transform = shearing(0., 0., 0., 1., 0., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(2., 7., 4.));
+    }
 
-    // # Scenario: A shearing transformation moves z in proportion to x
-    // #   Given transform â† shearing(0, 0, 0, 0, 1, 0)
-    // #     And p â† point(2, 3, 4)
-    // #   Then transform * p = point(2, 3, 6)
+    #[test]
+    fn a_shearing_transformation_moves_z_in_proportion_to_x() {
+        let transform = shearing(0., 0., 0., 0., 1., 0.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(2., 3., 6.));
+    }
 
-    // # Scenario: A shearing transformation moves z in proportion to y
-    // #   Given transform â† shearing(0, 0, 0, 0, 0, 1)
-    // #     And p â† point(2, 3, 4)
-    // #   Then transform * p = point(2, 3, 7)
+    #[test]
+    fn a_shearing_transformation_moves_z_in_proportion_to_y() {
+        let transform = shearing(0., 0., 0., 0., 0., 1.);
+        let p = Tuple::point(2., 3., 4.);
+        assert_eq!(transform * p, Tuple::point(2., 3., 7.));
+    }
 
-    // # Scenario: Individual transformations are applied in sequence
-    // #   Given p â† point(1, 0, 1)
-    // #     And A â† rotation_x(Ï€ / 2)
-    // #     And B â† scaling(5, 5, 5)
-    // #     And C â† translation(10, 5, 7)
+    //#[test] fn individual_transformations_are_applied_in_sequence() {
+    // #   Given p â† point(1., 0., 1.)
+    // #     And A â† rotation_x(Ï€ / 2.)
+    // #     And B â† scaling(5., 5., 5.)
+    // #     And C â† translation(10., 5., 7.)
     // #   # apply rotation first
-    // #   When p2 â† A * p
-    // #   Then p2 = point(1, -1, 0)
+    // #   When p2.. â† A * p
+    // #   Then p2. = point(1., -1., 0.)
     // #   # then apply scaling
-    // #   When p3 â† B * p2
-    // #   Then p3 = point(5, -5, 0)
+    // #   When p3. â† B * p2.
+    // #   Then p3. = point(5., -5., 0.)
     // #   # then apply translation
-    // #   When p4 â† C * p3
-    // #   Then p4 = point(15, 0, 7)
+    // #   When p4. â† C * p3.
+    // #   Then p4. = point(15., 0., 7.)
 
     // # Scenario: Chained transformations must be applied in reverse order
-    // #   Given p â† point(1, 0, 1)
-    // #     And A â† rotation_x(Ï€ / 2)
-    // #     And B â† scaling(5, 5, 5)
-    // #     And C â† translation(10, 5, 7)
+    // #   Given p â† point(1., 0., 1.)
+    // #     And A â† rotation_x(Ï€ / 2.)
+    // #     And B â† scaling(5., 5., 5.)
+    // #     And C â† translation(10., 5., 7.)
     // #   When T â† C * B * A
-    // #   Then T * p = point(15, 0, 7)
+    // #   Then T * p = point(15., 0., 7.)
 
     // # Scenario: The transformation matrix for the default orientation
-    // #   Given from â† point(0, 0, 0)
-    // #     And to â† point(0, 0, -1)
-    // #     And up â† vector(0, 1, 0)
+    // #   Given from â† point(0., 0., 0.)
+    // #     And to â† point(0., 0., -1.)
+    // #     And up â† vector(0., 1., 0.)
     // #   When t â† view_transform(from, to, up)
     // #   Then t = identity_matrix
 
     // # Scenario: A view transformation matrix looking in positive z direction
-    // #   Given from â† point(0, 0, 0)
-    // #     And to â† point(0, 0, 1)
-    // #     And up â† vector(0, 1, 0)
+    // #   Given from â† point(0., 0., 0.)
+    // #     And to â† point(0., 0., 1.)
+    // #     And up â† vector(0., 1., 0.)
     // #   When t â† view_transform(from, to, up)
-    // #   Then t = scaling(-1, 1, -1)
+    // #   Then t = scaling(-1., 1., -1.)
 
     // # Scenario: The view transformation moves the world
-    // #   Given from â† point(0, 0, 8)
-    // #     And to â† point(0, 0, 0)
-    // #     And up â† vector(0, 1, 0)
+    // #   Given from â† point(0., 0., 8.)
+    // #     And to â† point(0., 0., 0.)
+    // #     And up â† vector(0., 1., 0.)
     // #   When t â† view_transform(from, to, up)
-    // #   Then t = translation(0, 0, -8)
+    // #   Then t = translation(0., 0., -8.)
 
     // # Scenario: An arbitrary view transformation
-    // #   Given from â† point(1, 3, 2)
-    // #     And to â† point(4, -2, 8)
-    // #     And up â† vector(1, 1, 0)
+    // #   Given from â† point(1., 3., 2.)
+    // #     And to â† point(4., -2., 8.)
+    // #     And up â† vector(1., 1., 0.)
     // #   When t â† view_transform(from, to, up)
     // #   Then t is the following 4x4 matrix:
     // #       | -0.50709 | 0.50709 |  0.67612 | -2.36643 |
