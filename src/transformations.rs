@@ -228,28 +228,36 @@ mod tests {
         assert_eq!(transform * p, Tuple::point(2., 3., 7.));
     }
 
-    //#[test] fn individual_transformations_are_applied_in_sequence() {
-    // #   Given p â† point(1., 0., 1.)
-    // #     And A â† rotation_x(Ï€ / 2.)
-    // #     And B â† scaling(5., 5., 5.)
-    // #     And C â† translation(10., 5., 7.)
-    // #   # apply rotation first
-    // #   When p2.. â† A * p
-    // #   Then p2. = point(1., -1., 0.)
-    // #   # then apply scaling
-    // #   When p3. â† B * p2.
-    // #   Then p3. = point(5., -5., 0.)
-    // #   # then apply translation
-    // #   When p4. â† C * p3.
-    // #   Then p4. = point(15., 0., 7.)
+    #[test]
+    fn individual_transformations_are_applied_in_sequence() {
+        let p = Tuple::point(1., 0., 1.);
+        let a = rotation_x(PI / 2.);
+        let b = scaling(5., 5., 5.);
+        let c = translation(10., 5., 7.);
 
-    // # Scenario: Chained transformations must be applied in reverse order
-    // #   Given p â† point(1., 0., 1.)
-    // #     And A â† rotation_x(Ï€ / 2.)
-    // #     And B â† scaling(5., 5., 5.)
-    // #     And C â† translation(10., 5., 7.)
-    // #   When T â† C * B * A
-    // #   Then T * p = point(15., 0., 7.)
+        // apply rotation first
+        let p2 = a * p;
+        assert_eq!(p2, Tuple::point(1., -1., 0.));
+
+        // then apply scaling
+        let p3 = b * p2;
+        assert_eq!(p3, Tuple::point(5., -5., 0.));
+
+        // then apply translation
+        let p4 = c * p3;
+        assert_eq!(p4, Tuple::point(15., 0., 7.));
+    }
+
+    #[test]
+    fn chained_transformations_must_be_applied_in_reverse_order() {
+        let p = Tuple::point(1., 0., 1.);
+        let a = rotation_x(PI / 2.);
+        let b = scaling(5., 5., 5.);
+        let c = translation(10., 5., 7.);
+
+        let t = c * b * a;
+        assert_eq!(t * p, Tuple::point(15., 0., 7.));
+    }
 
     // # Scenario: The transformation matrix for the default orientation
     // #   Given from â† point(0., 0., 0.)
