@@ -59,7 +59,7 @@ impl Tuple {
         )
     }
 
-    fn dot(&self, other: &Self) -> f32 {
+    pub fn dot(&self, other: &Self) -> f32 {
         assert!(self.is_vector());
 
         // .w really?
