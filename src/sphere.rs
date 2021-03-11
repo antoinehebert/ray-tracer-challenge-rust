@@ -1,33 +1,45 @@
 use crate::assert_almost_eq;
+use crate::intersection::*;
 use crate::ray::*;
 use crate::tuple::Tuple;
 use crate::utils::*;
 
-struct Sphere {}
+#[derive(Debug)]
+pub struct Sphere {}
 
 impl Sphere {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Sphere {}
     }
 
-    fn intersect(&self, ray: Ray) -> Vec<f32> {
-        // the sphere is always centered at the world origin...
+    // Returns intersection points (time) along `ray`.
+    fn intersect(&self, ray: Ray) -> Intersections {
+        // The sphere is always centered at the world origin...
         let sphere_to_ray = ray.origin - Tuple::point(0., 0., 0.);
         let a = ray.direction.dot(&ray.direction);
         let b = 2. * ray.direction.dot(&sphere_to_ray);
         let c = sphere_to_ray.dot(&sphere_to_ray) - 1.;
 
+        // Classic quadratic formula!
         let discriminant = b.powf(2.) - 4. * a * c;
 
         let mut result = Vec::new();
 
         if discriminant >= 0. {
             let sqrt = discriminant.sqrt();
-            result.push((-b - sqrt) / (2. * a));
-            result.push((-b + sqrt) / (2. * a));
+            result.push(Intersection::new((-b - sqrt) / (2. * a), &self));
+            result.push(Intersection::new((-b + sqrt) / (2. * a), &self));
         }
 
         result
+    }
+}
+
+impl PartialEq for Sphere {
+    fn eq(&self, _other: &Self) -> bool {
+        // all spheres are equal for now... since they are all centered at the origin and they all have the same radius
+        // of 1.
+        true
     }
 }
 
@@ -43,8 +55,8 @@ mod tests {
         let xs = s.intersect(r);
 
         assert_eq!(xs.len(), 2);
-        assert_almost_eq!(xs[0], 4.0);
-        assert_almost_eq!(xs[1], 6.0);
+        assert_almost_eq!(xs[0].t, 4.0);
+        assert_almost_eq!(xs[1].t, 6.0);
     }
 
     #[test]
@@ -55,8 +67,8 @@ mod tests {
         let xs = s.intersect(r);
 
         assert_eq!(xs.len(), 2);
-        assert_almost_eq!(xs[0], 5.0);
-        assert_almost_eq!(xs[1], 5.0);
+        assert_almost_eq!(xs[0].t, 5.0);
+        assert_almost_eq!(xs[1].t, 5.0);
     }
 
     #[test]
@@ -77,8 +89,8 @@ mod tests {
         let xs = s.intersect(r);
 
         assert_eq!(xs.len(), 2);
-        assert_almost_eq!(xs[0], -1.0);
-        assert_almost_eq!(xs[1], 1.0);
+        assert_almost_eq!(xs[0].t, -1.0);
+        assert_almost_eq!(xs[1].t, 1.0);
     }
 
     #[test]
@@ -89,18 +101,20 @@ mod tests {
         let xs = s.intersect(r);
 
         assert_eq!(xs.len(), 2);
-        assert_almost_eq!(xs[0], -6.0);
-        assert_almost_eq!(xs[1], -4.0);
+        assert_almost_eq!(xs[0].t, -6.0);
+        assert_almost_eq!(xs[1].t, -4.0);
     }
 
-    // Scenario: Intersect sets the object on the intersection
-    //   Given r â† ray(point(0., 0., -5.), vector(0., 0., 1.))
-    //     And s â† sphere()
-    //   When xs â† intersect(s, r)
-    //   Then xs.count = 2.
-    //     And xs[0].object = s
-    //     And xs[1].object = s
+    #[test]
+    fn intersect_sets_the_object_on_the_intersection() {
+        let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let s = Sphere::new();
+        let xs = s.intersect(r);
 
+        assert_eq!(xs.len(), 2);
+        assert_eq!(xs[0].object, &s);
+        assert_eq!(xs[1].object, &s);
+    }
     // Scenario: A sphere's default transformation
     //   Given s â† sphere()
     //   Then s.transform = identity_matrix
