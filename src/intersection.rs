@@ -1,5 +1,6 @@
 use crate::sphere::*;
 
+#[derive(Debug, Clone)]
 pub struct Intersection<'a> {
     pub t: f32, // intersection "time"
     pub object: &'a Sphere,
@@ -12,6 +13,18 @@ impl<'a> Intersection<'a> {
 }
 
 pub type Intersections<'a> = Vec<Intersection<'a>>;
+
+fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
+    xs.iter()
+        .filter(|x| x.t >= 0.)
+        .min_by(|x, y| x.t.total_cmp(&y.t))
+}
+
+impl<'a> PartialEq for Intersection<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.t == other.t && self.object == other.object
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -35,6 +48,51 @@ mod tests {
         assert_eq!(xs.len(), 2);
         assert_eq!(xs[0].t, 1.);
         assert_eq!(xs[1].t, 2.);
+    }
+
+    #[test]
+    fn the_hit_when_all_intersections_have_positive_t() {
+        let s = Sphere::new();
+        let i1 = Intersection::new(1., &s);
+        let i2 = Intersection::new(2., &s);
+        let xs = vec![i1.clone(), i2];
+
+        let i = hit(&xs).unwrap();
+        assert_eq!(i, &i1);
+    }
+
+    #[test]
+    fn the_hit_when_some_intersections_have_negative_t() {
+        let s = Sphere::new();
+        let i1 = Intersection::new(-1., &s);
+        let i2 = Intersection::new(1., &s);
+        let xs = vec![i1, i2.clone()];
+
+        let i = hit(&xs).unwrap();
+        assert_eq!(i, &i2);
+    }
+
+    #[test]
+    fn the_hit_when_all_intersections_have_negative_t() {
+        let s = Sphere::new();
+        let i1 = Intersection::new(-2., &s);
+        let i2 = Intersection::new(-1., &s);
+        let xs = vec![i1, i2];
+
+        assert!(hit(&xs).is_none());
+    }
+
+    #[test]
+    fn the_hit_is_always_the_lowest_nonnegative_intersection() {
+        let s = Sphere::new();
+        let i1 = Intersection::new(5., &s);
+        let i2 = Intersection::new(7., &s);
+        let i3 = Intersection::new(-3., &s);
+        let i4 = Intersection::new(2., &s);
+        let xs = vec![i1, i2, i3, i4.clone()];
+
+        let i = hit(&xs).unwrap();
+        assert_eq!(i, &i4);
     }
 
     // Scenario: Precomputing the state of an intersection
@@ -91,49 +149,6 @@ mod tests {
     //   When comps â† prepare_computations(i, r, xs)
     //   Then comps.under_point.z > EPSILON/2
     //     And comps.point.z < comps.under_point.z
-
-    // Scenario: Aggregating intersections
-    //   Given s â† sphere()
-    //     And i1 â† intersection(1, s)
-    //     And i2 â† intersection(2, s)
-    //   When xs â† intersections(i1, i2)
-    //   Then xs.count = 2
-    //     And xs[0].t = 1
-    //     And xs[1].t = 2
-
-    // Scenario: The hit, when all intersections have positive t
-    //   Given s â† sphere()
-    //     And i1 â† intersection(1, s)
-    //     And i2 â† intersection(2, s)
-    //     And xs â† intersections(i2, i1)
-    //   When i â† hit(xs)
-    //   Then i = i1
-
-    // Scenario: The hit, when some intersections have negative t
-    //   Given s â† sphere()
-    //     And i1 â† intersection(-1, s)
-    //     And i2 â† intersection(1, s)
-    //     And xs â† intersections(i2, i1)
-    //   When i â† hit(xs)
-    //   Then i = i2
-
-    // Scenario: The hit, when all intersections have negative t
-    //   Given s â† sphere()
-    //     And i1 â† intersection(-2, s)
-    //     And i2 â† intersection(-1, s)
-    //     And xs â† intersections(i2, i1)
-    //   When i â† hit(xs)
-    //   Then i is nothing
-
-    // Scenario: The hit is always the lowest nonnegative intersection
-    //   Given s â† sphere()
-    //   And i1 â† intersection(5, s)
-    //   And i2 â† intersection(7, s)
-    //   And i3 â† intersection(-3, s)
-    //   And i4 â† intersection(2, s)
-    //   And xs â† intersections(i1, i2, i3, i4)
-    // When i â† hit(xs)
-    // Then i = i4
 
     // Scenario Outline: Finding n1 and n2 at various intersections
     //   Given A â† glass_sphere() with:

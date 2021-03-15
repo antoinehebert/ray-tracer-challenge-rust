@@ -33,7 +33,7 @@ impl Canvas {
             for x in 0..self.width {
                 let color = self.get_pixel(x, y);
 
-                let mut color_strs = vec![
+                let color_strs = vec![
                     Self::color_to_str(color.red),
                     Self::color_to_str(color.green),
                     Self::color_to_str(color.blue),

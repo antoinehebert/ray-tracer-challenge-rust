@@ -1,3 +1,4 @@
+#![feature(total_cmp)]
 mod canvas;
 mod color;
 mod intersection;
