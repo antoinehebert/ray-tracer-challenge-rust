@@ -1,4 +1,5 @@
 use crate::tuple::Tuple;
+use crate::{matrix::Matrix, transformations::*};
 
 pub struct Ray {
     pub origin: Tuple,
@@ -12,6 +13,13 @@ impl Ray {
 
     fn position(&self, time: f32) -> Tuple {
         self.origin + self.direction * time
+    }
+
+    pub fn transform(&self, matrix: Matrix<4>) -> Self {
+        Ray {
+            origin: matrix * self.origin,
+            direction: matrix * self.direction,
+        }
     }
 }
 
@@ -39,17 +47,21 @@ mod tests {
         assert_eq!(r.position(2.5), Tuple::point(4.5, 3., 4.));
     }
 
-    // Scenario: Translating a ray
-    //   Given r â† ray(point(1., 2., 3.), vector(0., 1., 0.))
-    //     And m â† translation(3., 4., 5.)
-    //   When r2. â† transform(r, m)
-    //   Then r2..origin = point(4., 6., 8.)
-    //     And r2..direction = vector(0., 1., 0.)
+    #[test]
+    fn translating_a_ray() {
+        let r = Ray::new(Tuple::point(1., 2., 3.), Tuple::vector(0., 1., 0.));
+        let m = translation(3., 4., 5.);
+        let r2 = r.transform(m);
+        assert_eq!(r2.origin, Tuple::point(4., 6., 8.));
+        assert_eq!(r2.direction, Tuple::vector(0., 1., 0.));
+    }
 
-    // Scenario: Scaling a ray
-    //   Given r â† ray(point(1., 2., 3.), vector(0., 1., 0.))
-    //     And m â† scaling(2., 3., 4.)
-    //   When r2. â† transform(r, m)
-    //   Then r2..origin = point(2., 6., 12.)
-    //     And r2.direction = vector(0., 3., 0.)
+    #[test]
+    fn scaling_a_ray() {
+        let r = Ray::new(Tuple::point(1., 2., 3.), Tuple::vector(0., 1., 0.));
+        let m = scaling(2., 3., 4.);
+        let r2 = r.transform(m);
+        assert_eq!(r2.origin, Tuple::point(2., 6., 12.));
+        assert_eq!(r2.direction, Tuple::vector(0., 3., 0.));
+    }
 }

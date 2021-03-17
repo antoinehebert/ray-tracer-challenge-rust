@@ -1,19 +1,32 @@
-use crate::assert_almost_eq;
 use crate::intersection::*;
+use crate::matrix::Matrix;
 use crate::ray::*;
+use crate::transformations::*;
 use crate::tuple::Tuple;
 use crate::utils::*;
 
 #[derive(Debug)]
-pub struct Sphere {}
+pub struct Sphere {
+    transform: Matrix<4>,
+}
 
 impl Sphere {
     pub fn new() -> Self {
-        Sphere {}
+        Sphere {
+            transform: Matrix::<4>::identity(),
+        }
     }
 
     // Returns intersection points (time) along `ray`.
-    fn intersect(&self, ray: Ray) -> Intersections {
+    fn intersect(&self, ray: &Ray) -> Intersections {
+        // We want the the sphere to always be centered at the world origin, so we move the ray by the inverse of the
+        // sphere transformation.
+        let ray = ray.transform(
+            self.transform
+                .inverse()
+                .expect("sphere transform should be invertible"),
+        );
+
         // The sphere is always centered at the world origin...
         let sphere_to_ray = ray.origin - Tuple::point(0., 0., 0.);
         let a = ray.direction.dot(&ray.direction);
@@ -33,6 +46,10 @@ impl Sphere {
 
         result
     }
+
+    fn transform(&mut self, matrix: Matrix<4>) {
+        self.transform = self.transform * matrix;
+    }
 }
 
 impl PartialEq for Sphere {
@@ -46,13 +63,14 @@ impl PartialEq for Sphere {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_almost_eq;
 
     #[test]
     fn a_ray_intersects_a_sphere_at_two_points() {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let s = Sphere::new();
 
-        let xs = s.intersect(r);
+        let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 2);
         assert_almost_eq!(xs[0].t, 4.0);
@@ -64,7 +82,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 1., -5.), Tuple::vector(0., 0., 1.));
         let s = Sphere::new();
 
-        let xs = s.intersect(r);
+        let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 2);
         assert_almost_eq!(xs[0].t, 5.0);
@@ -76,7 +94,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 2., -5.), Tuple::vector(0., 0., 1.));
         let s = Sphere::new();
 
-        let xs = s.intersect(r);
+        let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 0);
     }
@@ -86,7 +104,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
         let s = Sphere::new();
 
-        let xs = s.intersect(r);
+        let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 2);
         assert_almost_eq!(xs[0].t, -1.0);
@@ -98,7 +116,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
         let s = Sphere::new();
 
-        let xs = s.intersect(r);
+        let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 2);
         assert_almost_eq!(xs[0].t, -6.0);
@@ -109,38 +127,51 @@ mod tests {
     fn intersect_sets_the_object_on_the_intersection() {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let s = Sphere::new();
-        let xs = s.intersect(r);
+        let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 2);
         assert_eq!(xs[0].object, &s);
         assert_eq!(xs[1].object, &s);
     }
-    // Scenario: A sphere's default transformation
-    //   Given s â† sphere()
-    //   Then s.transform = identity_matrix
 
-    // Scenario: Changing a sphere's transformation
-    //   Given s â† sphere()
-    //     And t â† translation(2., 3., 4.)
-    //   When set_transform(s, t)
-    //   Then s.transform = t
+    #[test]
+    fn a_sphere_s_default_transformations() {
+        let s = Sphere::new();
+        assert_eq!(s.transform, Matrix::<4>::identity())
+    }
 
-    // Scenario: Intersecting a scaled sphere with a ray
-    //   Given r â† ray(point(0., 0., -5.), vector(0., 0., 1.))
-    //     And s â† sphere()
-    //   When set_transform(s, scaling(2., 2., 2.))
-    //     And xs â† intersect(s, r)
-    //   Then xs.count = 2
-    //     And xs[0].t = 3
-    //     And xs[1].t = 7
+    #[test]
+    fn changing_a_sphere_s_transformations() {
+        let mut s = Sphere::new();
+        let t = translation(2., 3., 4.);
+        s.transform(t);
 
-    // Scenario: Intersecting a translated sphere with a ray
-    //   Given r â† ray(point(0., 0., -5.), vector(0., 0., 1.))
-    //     And s â† sphere()
-    //   When set_transform(s, translation(5., 0., 0.))
-    //     And xs â† intersect(s, r)
-    //   Then xs.count = 0
+        assert_eq!(s.transform, t)
+    }
 
+    #[test]
+    fn intersecting_a_scaled_sphere_with_a_ray() {
+        let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let mut s = Sphere::new();
+
+        s.transform(scaling(2., 2., 2.));
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 2);
+        assert_almost_eq!(xs[0].t, 3.);
+        assert_almost_eq!(xs[1].t, 7.);
+    }
+
+    #[test]
+    fn intersecting_a_translated_sphere_with_a_ray() {
+        let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let mut s = Sphere::new();
+
+        s.transform(translation(5., 0., 0.));
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 0);
+    }
     // Scenario: The normal on a sphere at a point on the x axis
     //   Given s â† sphere()
     //   When n â† normal_at(s, point(1., 0., 0.))

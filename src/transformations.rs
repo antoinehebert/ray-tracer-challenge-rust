@@ -1,7 +1,7 @@
 use crate::matrix::Matrix;
 use crate::tuple::Tuple;
 
-fn translation(x: f32, y: f32, z: f32) -> Matrix<4> {
+pub fn translation(x: f32, y: f32, z: f32) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
     result[0][3] = x;
     result[1][3] = y;
@@ -10,7 +10,7 @@ fn translation(x: f32, y: f32, z: f32) -> Matrix<4> {
     result
 }
 
-fn scaling(x: f32, y: f32, z: f32) -> Matrix<4> {
+pub fn scaling(x: f32, y: f32, z: f32) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     result[0][0] = x;
