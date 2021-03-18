@@ -14,7 +14,7 @@ impl<'a> Intersection<'a> {
 
 pub type Intersections<'a> = Vec<Intersection<'a>>;
 
-fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
+pub fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
     xs.iter()
         .filter(|x| x.t >= 0.)
         .min_by(|x, y| x.t.total_cmp(&y.t))

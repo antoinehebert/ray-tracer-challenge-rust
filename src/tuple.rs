@@ -46,7 +46,7 @@ impl Tuple {
         (self.x.powf(2.) + self.y.powf(2.) + self.z.powf(2.) + self.w.powf(2.)).sqrt()
     }
 
-    fn normalize(&self) -> Self {
+    pub fn normalize(&self) -> Self {
         assert!(self.is_vector());
 
         let magnitude = self.magnitude();

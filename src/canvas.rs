@@ -1,13 +1,13 @@
 use crate::color::*;
 
-struct Canvas {
+pub struct Canvas {
     width: usize,
     height: usize,
     pixels: Vec<Color>,
 }
 
 impl Canvas {
-    fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize) -> Self {
         Self {
             width,
             height,
@@ -19,11 +19,11 @@ impl Canvas {
         self.pixels[x + y * self.width]
     }
 
-    fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
+    pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
         self.pixels[x + y * self.width] = color;
     }
 
-    fn to_ppm(&self) -> String {
+    pub fn to_ppm(&self) -> String {
         let mut result = String::from("P3\n"); // Version/Flavor of PPM
         result.push_str(&format!("{} {}\n", self.width, self.height));
         result.push_str("255\n"); // Max color value

@@ -18,7 +18,7 @@ impl Sphere {
     }
 
     // Returns intersection points (time) along `ray`.
-    fn intersect(&self, ray: &Ray) -> Intersections {
+    pub fn intersect(&self, ray: &Ray) -> Intersections {
         // We want the the sphere to always be centered at the world origin, so we move the ray by the inverse of the
         // sphere transformation.
         let ray = ray.transform(
