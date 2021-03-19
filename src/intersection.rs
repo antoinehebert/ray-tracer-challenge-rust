@@ -14,6 +14,7 @@ impl<'a> Intersection<'a> {
 
 pub type Intersections<'a> = Vec<Intersection<'a>>;
 
+// TODO: make this a method on Intersections.
 pub fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
     xs.iter()
         .filter(|x| x.t >= 0.)

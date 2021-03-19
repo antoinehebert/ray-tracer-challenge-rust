@@ -20,7 +20,7 @@ pub fn scaling(x: f32, y: f32, z: f32) -> Matrix<4> {
     result
 }
 
-fn rotation_x(rad: f32) -> Matrix<4> {
+pub fn rotation_x(rad: f32) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     let cos = rad.cos();
@@ -34,7 +34,7 @@ fn rotation_x(rad: f32) -> Matrix<4> {
     result
 }
 
-fn rotation_y(rad: f32) -> Matrix<4> {
+pub fn rotation_y(rad: f32) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     let cos = rad.cos();
@@ -48,7 +48,7 @@ fn rotation_y(rad: f32) -> Matrix<4> {
     result
 }
 
-fn rotation_z(rad: f32) -> Matrix<4> {
+pub fn rotation_z(rad: f32) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     let cos = rad.cos();
@@ -62,7 +62,7 @@ fn rotation_z(rad: f32) -> Matrix<4> {
     result
 }
 
-fn shearing(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Matrix<4> {
+pub fn shearing(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     result[0][1] = xy;

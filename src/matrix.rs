@@ -33,7 +33,7 @@ impl<const SIZE: usize> Matrix<SIZE> {
         result
     }
 
-    fn transpose(&self) -> Self {
+    pub fn transpose(&self) -> Self {
         let mut result = Self::zero();
 
         for row in 0..4 {
