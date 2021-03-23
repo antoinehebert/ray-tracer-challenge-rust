@@ -75,6 +75,11 @@ impl Tuple {
             self.x * other.y - self.y * other.x,
         )
     }
+
+    // Vector is reflected around the normal at the point where it hits the object.
+    fn reflect(&self, normal: &Self) -> Self {
+        (*self) - (*normal) * 2. * self.dot(normal)
+    }
 }
 
 impl PartialEq for Tuple {
@@ -319,5 +324,22 @@ mod tests {
 
         assert_eq!(a.cross(&b), Tuple::vector(-1., 2., -1.));
         assert_eq!(b.cross(&a), Tuple::vector(1., -2., 1.));
+    }
+
+    #[test]
+    fn reflecting_a_vector_approaching_at_45_degrees() {
+        let v = Tuple::vector(1., -1., 0.);
+        let n = Tuple::vector(0., 1., 0.);
+        let r = v.reflect(&n);
+
+        assert_eq!(r, Tuple::vector(1., 1., 0.));
+    }
+
+    #[test]
+    fn reflecting_a_vector_off_a_slanted_surface() {
+        let v = Tuple::vector(0., -1., 0.);
+        let n = Tuple::vector((2 as f32).sqrt() / 2., (2 as f32).sqrt() / 2., 0.);
+        let r = v.reflect(&n);
+        assert_eq!(r, Tuple::vector(1., 0., 0.));
     }
 }
