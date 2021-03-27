@@ -77,7 +77,7 @@ impl Tuple {
     }
 
     // Vector is reflected around the normal at the point where it hits the object.
-    fn reflect(&self, normal: &Self) -> Self {
+    pub fn reflect(&self, normal: &Self) -> Self {
         (*self) - (*normal) * 2. * self.dot(normal)
     }
 }

@@ -1,4 +1,5 @@
 use crate::intersection::*;
+use crate::material::*;
 use crate::matrix::Matrix;
 use crate::ray::*;
 use crate::transformations::*;
@@ -8,12 +9,14 @@ use crate::utils::*;
 #[derive(Debug)]
 pub struct Sphere {
     transform: Matrix<4>,
+    material: Material,
 }
 
 impl Sphere {
     pub fn new() -> Self {
         Sphere {
             transform: Matrix::<4>::identity(),
+            material: Material::new(),
         }
     }
 
@@ -261,17 +264,22 @@ mod tests {
         assert_eq!(n, Tuple::vector(0., 0.97014, -0.24254));
     }
 
-    // Scenario: A sphere has a default material
-    //   Given s â† sphere()
-    //   When m â† s.material
-    //   Then m = material()
+    #[test]
+    fn a_sphere_has_a_default_material() {
+        let s = Sphere::new();
+        let m = s.material;
 
-    // Scenario: A sphere may be assigned a material
-    //   Given s â† sphere()
-    //     And m â† material()
-    //     And m.ambient â† 1
-    //   When s.material â† m
-    //   Then s.material = m
+        assert_eq!(m, Material::new());
+    }
+
+    #[test]
+    fn a_sphere_may_be_assigned_a_material() {
+        let mut s = Sphere::new();
+        let mut m = Material::new();
+        m.ambient = 1.234;
+        s.material = m;
+        assert_eq!(s.material, m);
+    }
 
     // Scenario: A helper for producing a sphere with a glassy material
     //   Given s â† glass_sphere()

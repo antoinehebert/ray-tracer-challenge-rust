@@ -12,21 +12,22 @@ pub static RED: Color = Color {
     blue: 0.,
 };
 
-pub static GREEN: Color = Color {
-    red: 0.,
-    green: 1.,
-    blue: 0.,
-};
+// pub static GREEN: Color = Color {
+//     red: 0.,
+//     green: 1.,
+//     blue: 0.,
+// };
+
 // pub static BLUE: Color = Color {
 //     red: 0.,
 //     green: 0.,
 //     blue: 1.,
 // };
-// pub static WHITE: Color = Color {
-//     red: 1.,
-//     green: 1.,
-//     blue: 1.,
-// };
+pub static WHITE: Color = Color {
+    red: 1.,
+    green: 1.,
+    blue: 1.,
+};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Color {
