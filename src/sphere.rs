@@ -6,7 +6,7 @@ use crate::transformations::*;
 use crate::tuple::Tuple;
 use crate::utils::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Sphere {
     transform: Matrix<4>,
     material: Material,
@@ -67,14 +67,6 @@ impl Sphere {
         world_normal.w = 0.;
 
         world_normal.normalize()
-    }
-}
-
-impl PartialEq for Sphere {
-    fn eq(&self, _other: &Self) -> bool {
-        // all spheres are equal for now... since they are all centered at the origin and they all have the same radius
-        // of 1.
-        true
     }
 }
 

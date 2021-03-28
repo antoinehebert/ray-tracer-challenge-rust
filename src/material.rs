@@ -2,7 +2,7 @@ use crate::color::*;
 use crate::light::*;
 use crate::tuple::*;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Material {
     pub color: Color,
     pub ambient: f32,
@@ -49,16 +49,6 @@ impl Material {
         }
 
         ambient + diffuse + specular
-    }
-}
-
-impl PartialEq for Material {
-    fn eq(&self, other: &Self) -> bool {
-        self.color == other.color
-            && self.ambient == other.ambient
-            && self.diffuse == other.diffuse
-            && self.specular == other.specular
-            && self.shininess == other.shininess
     }
 }
 

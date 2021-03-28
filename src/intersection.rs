@@ -1,6 +1,6 @@
 use crate::sphere::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Intersection<'a> {
     pub t: f32, // intersection "time"
     pub object: &'a Sphere,
@@ -19,12 +19,6 @@ pub fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
     xs.iter()
         .filter(|x| x.t >= 0.)
         .min_by(|x, y| x.t.partial_cmp(&y.t).unwrap_or(std::cmp::Ordering::Equal))
-}
-
-impl<'a> PartialEq for Intersection<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.t == other.t && self.object == other.object
-    }
 }
 
 #[cfg(test)]
