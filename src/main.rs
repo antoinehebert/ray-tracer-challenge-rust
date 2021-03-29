@@ -12,7 +12,7 @@ mod tuple;
 mod utils;
 
 use canvas::Canvas;
-use color::{Color, RED, WHITE};
+use color::{Color, WHITE};
 use intersection::hit;
 use light::Light;
 use material::Material;
