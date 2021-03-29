@@ -9,7 +9,7 @@ use crate::utils::*;
 #[derive(Debug, PartialEq)]
 pub struct Sphere {
     transform: Matrix<4>,
-    material: Material,
+    pub material: Material,
 }
 
 impl Sphere {
@@ -54,7 +54,7 @@ impl Sphere {
         self.transform = self.transform * matrix;
     }
 
-    fn normal_at(&self, world_point: Tuple) -> Tuple {
+    pub fn normal_at(&self, world_point: Tuple) -> Tuple {
         let sphere_inverted_transform = self
             .transform
             .inverse()

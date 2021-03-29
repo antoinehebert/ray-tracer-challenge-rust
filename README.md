@@ -8,3 +8,7 @@ Rust implementation of a basic ray tracer, following the book [The Ray Tracer Ch
 # Running tests
 
     cargo test
+
+# Running app
+
+    cargo run > putting_it_together.ppm && open putting_it_together.ppm
