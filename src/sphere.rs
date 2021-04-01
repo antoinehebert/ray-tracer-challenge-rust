@@ -50,7 +50,7 @@ impl Sphere {
         result
     }
 
-    fn transform(&mut self, matrix: Matrix<4>) {
+    pub fn transform(&mut self, matrix: Matrix<4>) {
         self.transform = self.transform * matrix;
     }
 

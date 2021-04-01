@@ -1,4 +1,6 @@
+use crate::ray::Ray;
 use crate::sphere::*;
+use crate::tuple::Tuple;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Intersection<'a> {
@@ -10,9 +12,38 @@ impl<'a> Intersection<'a> {
     pub fn new(t: f32, object: &'a Sphere) -> Self {
         Self { t, object }
     }
+
+    pub fn prepare_computations(&self, ray: &Ray) -> Computations {
+        let point = ray.position(self.t);
+        let eyev = -ray.direction;
+        let mut normalv = self.object.normal_at(point);
+
+        let inside = normalv.dot(&eyev) < 0.0;
+        if inside {
+            normalv = -normalv;
+        }
+
+        Computations {
+            t: self.t,
+            object: self.object,
+            point,
+            eyev,
+            inside,
+            normalv,
+        }
+    }
 }
 
 pub type Intersections<'a> = Vec<Intersection<'a>>;
+
+pub struct Computations<'a> {
+    pub t: f32,
+    pub object: &'a Sphere,
+    pub point: Tuple,
+    pub eyev: Tuple,
+    pub inside: bool,
+    pub normalv: Tuple,
+}
 
 // TODO: make this a method on Intersections.
 pub fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
@@ -90,16 +121,19 @@ mod tests {
         assert_eq!(i, &i4);
     }
 
-    // Scenario: Precomputing the state of an intersection
-    //   Given r â† ray(point(0, 0, -5), vector(0, 0, 1))
-    //     And shape â† sphere()
-    //     And i â† intersection(4, shape)
-    //   When comps â† prepare_computations(i, r)
-    //   Then comps.t = i.t
-    //     And comps.object = i.object
-    //     And comps.point = point(0, 0, -1)
-    //     And comps.eyev = vector(0, 0, -1)
-    //     And comps.normalv = vector(0, 0, -1)
+    #[test]
+    fn precomputing_the_state_of_an_intersection() {
+        let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
+        let shape = Sphere::new();
+        let i = Intersection::new(4.0, &shape);
+        let comps = i.prepare_computations(&r);
+
+        assert_eq!(comps.t, i.t);
+        assert_eq!(comps.object, i.object);
+        assert_eq!(comps.point, Tuple::point(0.0, 0.0, -1.0));
+        assert_eq!(comps.eyev, Tuple::vector(0.0, 0.0, -1.0));
+        assert_eq!(comps.normalv, Tuple::vector(0.0, 0.0, -1.0));
+    }
 
     // Scenario: Precomputing the reflection vector
     //   Given shape â† plane()
@@ -108,23 +142,30 @@ mod tests {
     //   When comps â† prepare_computations(i, r)
     //   Then comps.reflectv = vector(0, âˆš2/2, âˆš2/2)
 
-    // Scenario: The hit, when an intersection occurs on the outside
-    //   Given r â† ray(point(0, 0, -5), vector(0, 0, 1))
-    //     And shape â† sphere()
-    //     And i â† intersection(4, shape)
-    //   When comps â† prepare_computations(i, r)
-    //   Then comps.inside = false
+    #[test]
+    fn the_hit_when_an_intersection_occurs_on_the_outside() {
+        let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
+        let shape = Sphere::new();
+        let i = Intersection::new(4.0, &shape);
+        let comps = i.prepare_computations(&r);
+        assert!(!comps.inside);
+    }
 
-    // Scenario: The hit, when an intersection occurs on the inside
-    //   Given r â† ray(point(0, 0, 0), vector(0, 0, 1))
-    //     And shape â† sphere()
-    //     And i â† intersection(1, shape)
-    //   When comps â† prepare_computations(i, r)
-    //   Then comps.point = point(0, 0, 1)
-    //     And comps.eyev = vector(0, 0, -1)
-    //     And comps.inside = true
-    //       # normal would have been (0, 0, 1), but is inverted!
-    //     And comps.normalv = vector(0, 0, -1)
+    #[test]
+    fn the_hit_when_an_intersection_occurs_on_the_inside() {
+        let r = Ray::new(Tuple::point(0.0, 0.0, 0.0), Tuple::vector(0.0, 0.0, 1.0));
+        let shape = Sphere::new();
+        let i = Intersection::new(1.0, &shape);
+        let comps = i.prepare_computations(&r);
+
+        assert_eq!(comps.t, i.t);
+        assert_eq!(comps.object, i.object);
+        assert_eq!(comps.point, Tuple::point(0.0, 0.0, 1.0));
+        assert_eq!(comps.eyev, Tuple::vector(0.0, 0.0, -1.0));
+        assert!(comps.inside);
+        // Normal would have been (0, 0, 1), but is inverted!
+        assert_eq!(comps.normalv, Tuple::vector(0.0, 0.0, -1.0));
+    }
 
     // Scenario: The hit should offset the point
     //   Given r â† ray(point(0, 0, -5), vector(0, 0, 1))

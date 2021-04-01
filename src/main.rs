@@ -10,6 +10,7 @@ mod test_utils;
 mod transformations;
 mod tuple;
 mod utils;
+mod world;
 
 use canvas::Canvas;
 use color::{Color, WHITE};
