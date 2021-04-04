@@ -66,7 +66,7 @@ impl Tuple {
         self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
     }
 
-    fn cross(&self, other: &Self) -> Self {
+    pub fn cross(&self, other: &Self) -> Self {
         assert!(self.is_vector() && other.is_vector());
 
         Tuple::vector(

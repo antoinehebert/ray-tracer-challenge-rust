@@ -77,6 +77,21 @@ pub fn shearing(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Matrix<
     result
 }
 
+pub fn view_transform(from: Tuple, to: Tuple, up: Tuple) -> Matrix<4> {
+    let forward = (to - from).normalize();
+    let upn = up.normalize();
+    let left = forward.cross(&upn);
+    let true_up = left.cross(&forward);
+
+    let orientation = Matrix::<4>::new([
+        [left.x, left.y, left.z, 0.],
+        [true_up.x, true_up.y, true_up.z, 0.],
+        [-forward.x, -forward.y, -forward.z, 0.],
+        [0., 0., 0., 1.],
+    ]);
+    orientation * translation(-from.x, -from.y, -from.z)
+}
+
 #[cfg(test)]
 mod tests {
     use std::f32::consts::PI;
@@ -259,35 +274,47 @@ mod tests {
         assert_eq!(t * p, Tuple::point(15., 0., 7.));
     }
 
-    // # Scenario: The transformation matrix for the default orientation
-    // #   Given from â† point(0., 0., 0.)
-    // #     And to â† point(0., 0., -1.)
-    // #     And up â† vector(0., 1., 0.)
-    // #   When t â† view_transform(from, to, up)
-    // #   Then t = identity_matrix
+    #[test]
+    fn the_transformation_matrix_for_the_default_orientation() {
+        let from = Tuple::point(0., 0., 0.);
+        let to = Tuple::point(0., 0., -1.);
+        let up = Tuple::vector(0., 1., 0.);
+        let t = view_transform(from, to, up);
+        assert_eq!(t, Matrix::<4>::identity());
+    }
 
-    // # Scenario: A view transformation matrix looking in positive z direction
-    // #   Given from â† point(0., 0., 0.)
-    // #     And to â† point(0., 0., 1.)
-    // #     And up â† vector(0., 1., 0.)
-    // #   When t â† view_transform(from, to, up)
-    // #   Then t = scaling(-1., 1., -1.)
+    #[test]
+    fn a_view_transformation_matrix_looking_in_positive_z_direction() {
+        let from = Tuple::point(0., 0., 0.);
+        let to = Tuple::point(0., 0., 1.);
+        let up = Tuple::vector(0., 1., 0.);
+        let t = view_transform(from, to, up);
+        assert_eq!(t, scaling(-1., 1., -1.));
+    }
 
-    // # Scenario: The view transformation moves the world
-    // #   Given from â† point(0., 0., 8.)
-    // #     And to â† point(0., 0., 0.)
-    // #     And up â† vector(0., 1., 0.)
-    // #   When t â† view_transform(from, to, up)
-    // #   Then t = translation(0., 0., -8.)
+    #[test]
+    fn the_view_transformation_moves_the_world() {
+        let from = Tuple::point(0., 0., 8.);
+        let to = Tuple::point(0., 0., 0.);
+        let up = Tuple::vector(0., 1., 0.);
+        let t = view_transform(from, to, up);
+        assert_eq!(t, translation(0., 0., -8.));
+    }
 
-    // # Scenario: An arbitrary view transformation
-    // #   Given from â† point(1., 3., 2.)
-    // #     And to â† point(4., -2., 8.)
-    // #     And up â† vector(1., 1., 0.)
-    // #   When t â† view_transform(from, to, up)
-    // #   Then t is the following 4x4 matrix:
-    // #       | -0.50709 | 0.50709 |  0.67612 | -2.36643 |
-    // #       |  0.76772 | 0.60609 |  0.12122 | -2.82843 |
-    // #       | -0.35857 | 0.59761 | -0.71714 |  0.00000 |
-    // #       |  0.00000 | 0.00000 |  0.00000 |  1.00000 |
+    #[test]
+    fn an_arbitrary_view_transformation() {
+        let from = Tuple::point(1., 3., 2.);
+        let to = Tuple::point(4., -2., 8.);
+        let up = Tuple::vector(1., 1., 0.);
+        let t = view_transform(from, to, up);
+        assert_eq!(
+            t,
+            Matrix::<4>::new([
+                [-0.50709, 0.50709, 0.67612, -2.36643],
+                [0.76772, 0.60609, 0.12122, -2.82843],
+                [-0.35857, 0.59761, -0.71714, 0.00000],
+                [0.00000, 0.00000, 0.00000, 1.00000]
+            ])
+        );
+    }
 }

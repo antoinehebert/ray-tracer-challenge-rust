@@ -6,6 +6,7 @@ pub static BLACK: Color = Color {
     green: 0.,
     blue: 0.,
 };
+
 pub static RED: Color = Color {
     red: 1.,
     green: 0.,
