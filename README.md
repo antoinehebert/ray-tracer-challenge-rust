@@ -12,3 +12,7 @@ Rust implementation of a basic ray tracer, following the book [The Ray Tracer Ch
 # Running app
 
     cargo run > putting_it_together.ppm && open putting_it_together.ppm
+
+# TODOs
+- Optimize!
+- Save to file directly instead of outputting a String.
