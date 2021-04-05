@@ -15,7 +15,7 @@ impl Canvas {
         }
     }
 
-    fn get_pixel(&self, x: usize, y: usize) -> Color {
+    pub fn get_pixel(&self, x: usize, y: usize) -> Color {
         self.pixels[x + y * self.width]
     }
 
