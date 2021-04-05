@@ -13,6 +13,9 @@ mod tuple;
 mod utils;
 mod world;
 
+use std::f32::consts::PI;
+
+use camera::Camera;
 use canvas::Canvas;
 use color::{Color, WHITE};
 use intersection::hit;
@@ -20,50 +23,76 @@ use light::Light;
 use material::Material;
 use ray::Ray;
 use sphere::Sphere;
+use transformations::*;
 use tuple::Tuple;
+use world::World;
 
 fn main() {
-    chapter_6_ray_sphere_intersections();
+    chapter_7_making_a_scene();
 }
 
 //
 // Putting it together. Exercises at the end of chapters.
 //
-fn chapter_6_ray_sphere_intersections() {
-    let ray_origin = Tuple::point(0., 0., -5.);
-    let wall_z = 10.;
-    let wall_size = 7.;
-    let canvas_pixels = 200;
-    let pixel_size = wall_size / canvas_pixels as f32;
-    let half = wall_size / 2.;
+fn chapter_7_making_a_scene() {
+    // Floors and walls are extremely flatten spheres...
+    let mut floor = Sphere::new();
+    floor.transform(scaling(10.0, 0.01, 10.));
+    floor.material.color = Color::new(1.0, 0.9, 0.9);
+    floor.material.specular = 0.0;
 
-    let mut canvas = Canvas::new(canvas_pixels, canvas_pixels);
-    let mut shape = Sphere::new();
-    shape.material = Material::new();
-    shape.material.color = Color::new(1.0, 0.2, 1.0);
+    let mut left_wall = Sphere::new();
+    left_wall.transform(
+        translation(0.0, 0.0, 5.0)
+            * rotation_y(-PI / 4.0)
+            * rotation_x(PI / 2.0)
+            * scaling(10.0, 0.01, 10.),
+    );
+    left_wall.material = floor.material;
+
+    let mut right_wall = Sphere::new();
+    right_wall.transform(
+        translation(0.0, 0.0, 5.0)
+            * rotation_y(PI / 4.0)
+            * rotation_x(PI / 2.0)
+            * scaling(10.0, 0.01, 10.),
+    );
+    right_wall.material = floor.material;
+
+    let mut middle = Sphere::new();
+    middle.transform(translation(-0.5, 1.0, 0.5));
+    middle.material.color = Color::new(0.1, 1.0, 0.5);
+    middle.material.diffuse = 0.7;
+    middle.material.specular = 0.3;
+
+    let mut right = Sphere::new();
+    right.transform(translation(1.5, 0.5, -0.5) * scaling(0.5, 0.5, 0.5));
+    right.material.color = Color::new(0.5, 1.0, 0.1);
+    right.material.diffuse = 0.7;
+    right.material.specular = 0.3;
+
+    let mut left = Sphere::new();
+    left.transform(translation(-1.5, 0.33, -0.75) * scaling(0.33, 0.33, 0.33));
+    left.material.color = Color::new(1.0, 0.8, 0.1);
+    left.material.diffuse = 0.7;
+    left.material.specular = 0.3;
 
     let light = Light::new(Tuple::point(-10.0, 10.0, -10.0), WHITE);
+    let mut world = World::new(light);
+    world.objects.push(floor);
+    world.objects.push(left_wall);
+    world.objects.push(right_wall);
+    world.objects.push(middle);
+    world.objects.push(right);
+    world.objects.push(left);
 
-    for y in 0..canvas_pixels {
-        let world_y = half - pixel_size * y as f32;
-        for x in 0..canvas_pixels {
-            let world_x = -half + pixel_size * x as f32;
+    let mut camera = Camera::new(100, 50, PI / 3.0);
+    camera.transform = view_transform(
+        Tuple::point(0.0, 1.5, -5.0),
+        Tuple::point(0.0, 1.0, 0.0),
+        Tuple::vector(0.0, 1.0, 0.0),
+    );
 
-            let wall_position = Tuple::point(world_x, world_y, wall_z);
-
-            let ray = Ray::new(ray_origin, (wall_position - ray_origin).normalize());
-            let xs = shape.intersect(&ray);
-
-            if let Some(hit) = hit(&xs) {
-                let point = ray.position(hit.t);
-                let normal = hit.object.normal_at(point);
-                let eye = -ray.direction;
-
-                let color = hit.object.material.lighting(&light, &point, &eye, &normal);
-                canvas.set_pixel(x, y, color);
-            }
-        }
-    }
-
+    let canvas = camera.render(&world);
     println!("{}", canvas.to_ppm());
 }

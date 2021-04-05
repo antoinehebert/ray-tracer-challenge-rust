@@ -5,8 +5,7 @@ pub struct Camera {
     hsize: usize,
     vsize: usize,
     field_of_view: f32,
-    transform: Matrix<4>,
-
+    pub transform: Matrix<4>,
     pixel_size: f32,
     half_width: f32,
     half_height: f32,
@@ -60,7 +59,7 @@ impl Camera {
         Ray::new(origin, direction)
     }
 
-    fn render(&self, world: &World) -> Canvas {
+    pub fn render(&self, world: &World) -> Canvas {
         let mut image = Canvas::new(self.hsize, self.vsize);
 
         for y in 0..self.vsize {
