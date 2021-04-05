@@ -22,7 +22,14 @@ impl Material {
         }
     }
 
-    pub fn lighting(&self, light: &Light, point: &Tuple, eyev: &Tuple, normalv: &Tuple) -> Color {
+    pub fn lighting(
+        &self,
+        light: &Light,
+        point: &Tuple,
+        eyev: &Tuple,
+        normalv: &Tuple,
+        in_shadow: bool,
+    ) -> Color {
         // Combine the surface color with the light's color/intensity.
         let effective_color = self.color * light.intensity;
 
@@ -31,20 +38,22 @@ impl Material {
 
         let ambient = effective_color * self.ambient;
 
-        // A negative number means the light is on the other side of the surface.
-        let light_dot_normal = lightv.dot(&normalv);
         let mut diffuse = BLACK;
         let mut specular = BLACK;
-        if light_dot_normal >= 0. {
-            diffuse = effective_color * self.diffuse * light_dot_normal;
+        if !in_shadow {
+            let light_dot_normal = lightv.dot(&normalv);
+            // A negative number means the light is on the other side of the surface.
+            if light_dot_normal >= 0. {
+                diffuse = effective_color * self.diffuse * light_dot_normal;
 
-            let reflectv = (-lightv).reflect(&normalv);
-            // A negative number means the light reflects away from the eye.
-            let reflect_dot_eye = reflectv.dot(&eyev);
+                let reflectv = (-lightv).reflect(&normalv);
+                // A negative number means the light reflects away from the eye.
+                let reflect_dot_eye = reflectv.dot(&eyev);
 
-            if reflect_dot_eye > 0. {
-                let factor = reflect_dot_eye.powf(self.shininess);
-                specular = light.intensity * self.specular * factor;
+                if reflect_dot_eye > 0. {
+                    let factor = reflect_dot_eye.powf(self.shininess);
+                    specular = light.intensity * self.specular * factor;
+                }
             }
         }
 
@@ -84,7 +93,7 @@ mod tests {
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 0., -10.), Color::new(1., 1., 1.));
 
-        let result = m.lighting(&light, &position, &eyev, &normalv);
+        let result = m.lighting(&light, &position, &eyev, &normalv, false);
         assert_eq!(result, Color::new(1.9, 1.9, 1.9));
     }
 
@@ -95,7 +104,7 @@ mod tests {
         let eyev = Tuple::vector(0., (2. as f32).sqrt() / 2., -(2. as f32).sqrt() / 2.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 0., -10.), Color::new(1., 1., 1.));
-        let result = m.lighting(&light, &position, &eyev, &normalv);
+        let result = m.lighting(&light, &position, &eyev, &normalv, false);
         assert_eq!(result, Color::new(1.0, 1.0, 1.0));
     }
 
@@ -106,7 +115,7 @@ mod tests {
         let eyev = Tuple::vector(0., 0., -1.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 10., -10.), Color::new(1., 1., 1.));
-        let result = m.lighting(&light, &position, &eyev, &normalv);
+        let result = m.lighting(&light, &position, &eyev, &normalv, false);
         assert_eq!(result, Color::new(0.7364, 0.7364, 0.7364));
     }
 
@@ -117,7 +126,7 @@ mod tests {
         let eyev = Tuple::vector(0., -(2. as f32).sqrt() / 2., -(2. as f32).sqrt() / 2.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 10., -10.), Color::new(1., 1., 1.));
-        let result = m.lighting(&light, &position, &eyev, &normalv);
+        let result = m.lighting(&light, &position, &eyev, &normalv, false);
         assert_eq!(result, Color::new(1.63638, 1.63638, 1.63638));
     }
 
@@ -128,17 +137,21 @@ mod tests {
         let eyev = Tuple::vector(0., 0., -1.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 0., 10.), Color::new(1., 1., 1.));
-        let result = m.lighting(&light, &position, &eyev, &normalv);
+        let result = m.lighting(&light, &position, &eyev, &normalv, false);
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
     }
 
-    // Scenario: Lighting with the surface in shadow
-    //   Given eyev â† vector(0., 0., -1.)
-    //     And normalv â† vector(0., 0., -1.)
-    //     And light â† point_light(point(0., 0., -10.), color(1., 1., 1.))
-    //     And in_shadow â† true
-    //   When result â† lighting(m, light, position, eyev, normalv, in_shadow)
-    //   Then result = color(0..1., 0.1, 0.1)
+    #[test]
+    fn lighting_with_the_surface_in_shadow() {
+        let m = Material::new();
+        let position = Tuple::point(0., 0., 0.);
+        let eyev = Tuple::vector(0., 0., -1.);
+        let normalv = Tuple::vector(0., 0., -1.);
+        let light = Light::new(Tuple::point(0., 0., -10.), Color::new(1., 1., 1.));
+        let in_shadow = true;
+        let result = m.lighting(&light, &position, &eyev, &normalv, in_shadow);
+        assert_eq!(result, Color::new(0.1, 0.1, 0.1));
+    }
 
     // Scenario: Lighting with a pattern applied
     //   Given m.pattern â† stripe_pattern(color(1., 1., 1.), color(0., 0., 0.))

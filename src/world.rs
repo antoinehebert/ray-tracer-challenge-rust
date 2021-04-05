@@ -55,10 +55,13 @@ impl World {
     }
 
     fn shade_hit(&self, comps: &Computations) -> Color {
-        comps
-            .object
-            .material
-            .lighting(&self.light, &comps.point, &comps.eyev, &comps.normalv)
+        comps.object.material.lighting(
+            &self.light,
+            &comps.point,
+            &comps.eyev,
+            &comps.normalv,
+            false,
+        ) // fix in shadow!
     }
 
     pub fn color_at(&self, ray: &Ray) -> Color {
