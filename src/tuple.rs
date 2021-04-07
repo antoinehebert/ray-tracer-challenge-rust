@@ -39,7 +39,7 @@ impl Tuple {
         Tuple::new(x, y, z, 0.0)
     }
 
-    fn magnitude(&self) -> f32 {
+    pub fn magnitude(&self) -> f32 {
         assert!(self.is_vector());
 
         // .w really?!

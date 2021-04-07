@@ -73,6 +73,22 @@ impl World {
             Some(intersection) => self.shade_hit(&intersection.prepare_computations(&ray)),
         }
     }
+
+    fn is_shadowed(&self, point: &Tuple) -> bool {
+        let point = *point;
+        let vector = self.light.position - point;
+        let distance = vector.magnitude();
+        let direction = vector.normalize();
+
+        let ray = Ray::new(point, direction);
+        let intersections = self.intersect(&ray);
+
+        let hit = hit(&intersections);
+        match hit {
+            Some(hit) => hit.t < distance,
+            None => false,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -172,25 +188,37 @@ mod tests {
         let c = w.color_at(&r);
         assert_eq!(c, w.objects[1].material.color);
     }
-    // Scenario: There is no shadow when nothing is collinear with point and light
-    //   Given w â† default_world()
-    //     And p â† point(0, 10, 0)
-    //    Then is_shadowed(w, p) is false
 
-    // Scenario: The shadow when an object is between the point and the light
-    //   Given w â† default_world()
-    //     And p â† point(10, -10, 10)
-    //    Then is_shadowed(w, p) is true
+    #[test]
+    fn there_is_no_shadow_when_nothing_is_collinear_with_point_and_light() {
+        let w = World::default_world();
+        let p = Tuple::point(0.0, 10.0, 0.0);
 
-    // Scenario: There is no shadow when an object is behind the light
-    //   Given w â† default_world()
-    //     And p â† point(-20, 20, -20)
-    //    Then is_shadowed(w, p) is false
+        assert!(!w.is_shadowed(&p));
+    }
+    #[test]
+    fn the_shadow_when_an_object_is_between_the_point_and_the_light() {
+        let w = World::default_world();
+        let p = Tuple::point(10.0, -10.0, 10.0);
 
-    // Scenario: There is no shadow when an object is behind the point
-    //   Given w â† default_world()
-    //     And p â† point(-2, 2, -2)
-    //    Then is_shadowed(w, p) is false
+        assert!(w.is_shadowed(&p));
+    }
+
+    #[test]
+    fn there_is_no_shadow_when_an_object_is_behind_the_light() {
+        let w = World::default_world();
+        let p = Tuple::point(-20.0, 20.0, -20.0);
+
+        assert!(!w.is_shadowed(&p));
+    }
+
+    #[test]
+    fn there_is_no_shadow_when_an_object_is_behind_the_point() {
+        let w = World::default_world();
+        let p = Tuple::point(-2.0, 2.0, -2.0);
+
+        assert!(!w.is_shadowed(&p));
+    }
 
     // Scenario: shade_hit() is given an intersection in shadow
     //   Given w â† world()
