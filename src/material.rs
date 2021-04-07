@@ -5,10 +5,10 @@ use crate::tuple::*;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Material {
     pub color: Color,
-    pub ambient: f32,
-    pub diffuse: f32,
-    pub specular: f32,
-    pub shininess: f32,
+    pub ambient: f64,
+    pub diffuse: f64,
+    pub specular: f64,
+    pub shininess: f64,
 }
 
 impl Material {
@@ -101,7 +101,7 @@ mod tests {
     fn lighting_with_the_eye_between_light_and_surface_eye_offset_45_degrees() {
         let m = Material::new();
         let position = Tuple::point(0., 0., 0.);
-        let eyev = Tuple::vector(0., (2. as f32).sqrt() / 2., -(2. as f32).sqrt() / 2.);
+        let eyev = Tuple::vector(0., (2. as f64).sqrt() / 2., -(2. as f64).sqrt() / 2.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 0., -10.), Color::new(1., 1., 1.));
         let result = m.lighting(&light, &position, &eyev, &normalv, false);
@@ -123,11 +123,11 @@ mod tests {
     fn lighting_with_eye_in_the_path_of_the_reflection_vector() {
         let m = Material::new();
         let position = Tuple::point(0., 0., 0.);
-        let eyev = Tuple::vector(0., -(2. as f32).sqrt() / 2., -(2. as f32).sqrt() / 2.);
+        let eyev = Tuple::vector(0., -(2. as f64).sqrt() / 2., -(2. as f64).sqrt() / 2.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 10., -10.), Color::new(1., 1., 1.));
         let result = m.lighting(&light, &position, &eyev, &normalv, false);
-        assert_eq!(result, Color::new(1.63638, 1.63638, 1.63638));
+        assert_eq!(result, Color::new(1.6364, 1.6364, 1.6364));
     }
 
     #[test]

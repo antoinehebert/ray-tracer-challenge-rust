@@ -3,14 +3,14 @@ use crate::utils::*;
 use std::ops;
 #[derive(Debug, Copy, Clone)]
 pub struct Tuple {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-    pub w: f32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub w: f64,
 }
 
 impl Tuple {
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
+    pub fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
         Tuple { x, y, z, w }
     }
 
@@ -31,15 +31,15 @@ impl Tuple {
         self.w == 0.0
     }
 
-    pub fn point(x: f32, y: f32, z: f32) -> Tuple {
+    pub fn point(x: f64, y: f64, z: f64) -> Tuple {
         Tuple::new(x, y, z, 1.0)
     }
 
-    pub fn vector(x: f32, y: f32, z: f32) -> Tuple {
+    pub fn vector(x: f64, y: f64, z: f64) -> Tuple {
         Tuple::new(x, y, z, 0.0)
     }
 
-    pub fn magnitude(&self) -> f32 {
+    pub fn magnitude(&self) -> f64 {
         assert!(self.is_vector());
 
         // .w really?!
@@ -59,7 +59,7 @@ impl Tuple {
         )
     }
 
-    pub fn dot(&self, other: &Self) -> f32 {
+    pub fn dot(&self, other: &Self) -> f64 {
         assert!(self.is_vector());
 
         // .w really?
@@ -125,20 +125,20 @@ impl ops::Neg for Tuple {
     }
 }
 
-impl ops::Mul<f32> for Tuple {
+impl ops::Mul<f64> for Tuple {
     // The multiplication of rational numbers is a closed operation.
     type Output = Self;
 
-    fn mul(self, rhs: f32) -> Self {
+    fn mul(self, rhs: f64) -> Self {
         Self::new(self.x * rhs, self.y * rhs, self.z * rhs, self.w * rhs)
     }
 }
 
-impl ops::Div<f32> for Tuple {
+impl ops::Div<f64> for Tuple {
     // The multiplication of rational numbers is a closed operation.
     type Output = Self;
 
-    fn div(self, rhs: f32) -> Self {
+    fn div(self, rhs: f64) -> Self {
         Self::new(self.x / rhs, self.y / rhs, self.z / rhs, self.w / rhs)
     }
 }
@@ -278,12 +278,12 @@ mod tests {
     #[test]
     fn computing_the_magnitude_of_vector_1_2_3() {
         let v = Tuple::vector(1., 2., 3.);
-        assert_eq!(v.magnitude(), (14. as f32).sqrt());
+        assert_eq!(v.magnitude(), (14. as f64).sqrt());
     }
     #[test]
     fn computing_the_magnitude_of_neg_vector_1_2_3() {
         let v = Tuple::vector(-1., -2., -3.);
-        assert_eq!(v.magnitude(), (14. as f32).sqrt());
+        assert_eq!(v.magnitude(), (14. as f64).sqrt());
     }
 
     #[test]
@@ -338,7 +338,7 @@ mod tests {
     #[test]
     fn reflecting_a_vector_off_a_slanted_surface() {
         let v = Tuple::vector(0., -1., 0.);
-        let n = Tuple::vector((2 as f32).sqrt() / 2., (2 as f32).sqrt() / 2., 0.);
+        let n = Tuple::vector((2 as f64).sqrt() / 2., (2 as f64).sqrt() / 2., 0.);
         let r = v.reflect(&n);
         assert_eq!(r, Tuple::vector(1., 0., 0.));
     }

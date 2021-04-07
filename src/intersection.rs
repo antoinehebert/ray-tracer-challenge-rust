@@ -4,12 +4,12 @@ use crate::tuple::Tuple;
 use crate::utils::*;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Intersection<'a> {
-    pub t: f32, // intersection "time"
+    pub t: f64, // intersection "time"
     pub object: &'a Sphere,
 }
 
 impl<'a> Intersection<'a> {
-    pub fn new(t: f32, object: &'a Sphere) -> Self {
+    pub fn new(t: f64, object: &'a Sphere) -> Self {
         Self { t, object }
     }
 
@@ -38,7 +38,7 @@ impl<'a> Intersection<'a> {
 pub type Intersections<'a> = Vec<Intersection<'a>>;
 
 pub struct Computations<'a> {
-    pub t: f32,
+    pub t: f64,
     pub object: &'a Sphere,
     pub point: Tuple,
     pub over_point: Tuple, // Prevent acne effect.

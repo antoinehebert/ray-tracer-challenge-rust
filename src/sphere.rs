@@ -72,7 +72,7 @@ impl Sphere {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::PI;
+    use std::f64::consts::PI;
 
     use super::*;
     use crate::assert_almost_eq;
@@ -209,16 +209,16 @@ mod tests {
     fn the_normal_on_a_sphere_at_a_nonaxial_point() {
         let s = Sphere::new();
         let n = s.normal_at(Tuple::point(
-            (3. as f32).sqrt() / 3.,
-            (3. as f32).sqrt() / 3.,
-            (3. as f32).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
         ));
         assert_eq!(
             n,
             Tuple::vector(
-                (3. as f32).sqrt() / 3.,
-                (3. as f32).sqrt() / 3.,
-                (3. as f32).sqrt() / 3.
+                (3. as f64).sqrt() / 3.,
+                (3. as f64).sqrt() / 3.,
+                (3. as f64).sqrt() / 3.
             )
         );
     }
@@ -227,9 +227,9 @@ mod tests {
     fn the_normal_is_a_normalized_vector() {
         let s = Sphere::new();
         let n = s.normal_at(Tuple::point(
-            (3. as f32).sqrt() / 3.,
-            (3. as f32).sqrt() / 3.,
-            (3. as f32).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
         ));
         assert_eq!(n, n.normalize());
     }
@@ -250,8 +250,8 @@ mod tests {
         s.transform(m);
         let n = s.normal_at(Tuple::point(
             0.,
-            (2 as f32).sqrt() / 2.,
-            -(2 as f32).sqrt() / 2.,
+            (2 as f64).sqrt() / 2.,
+            -(2 as f64).sqrt() / 2.,
         ));
         assert_eq!(n, Tuple::vector(0., 0.97014, -0.24254));
     }

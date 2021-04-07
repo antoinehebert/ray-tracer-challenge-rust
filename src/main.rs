@@ -13,7 +13,7 @@ mod tuple;
 mod utils;
 mod world;
 
-use std::f32::consts::PI;
+use std::f64::consts::PI;
 
 use camera::Camera;
 use canvas::Canvas;
@@ -28,13 +28,13 @@ use tuple::Tuple;
 use world::World;
 
 fn main() {
-    chapter_7_making_a_scene();
+    chapter_8_shadows();
 }
 
 //
 // Putting it together. Exercises at the end of chapters.
 //
-fn chapter_7_making_a_scene() {
+fn chapter_8_shadows() {
     // Floors and walls are extremely flatten spheres...
     let mut floor = Sphere::new();
     floor.transform(scaling(10.0, 0.01, 10.));

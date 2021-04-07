@@ -4,15 +4,15 @@ use crate::{tuple::Tuple, world::World};
 pub struct Camera {
     hsize: usize,
     vsize: usize,
-    field_of_view: f32,
+    field_of_view: f64,
     pub transform: Matrix<4>,
-    pixel_size: f32,
-    half_width: f32,
-    half_height: f32,
+    pixel_size: f64,
+    half_width: f64,
+    half_height: f64,
 }
 
 impl Camera {
-    pub fn new(hsize: usize, vsize: usize, field_of_view: f32) -> Self {
+    pub fn new(hsize: usize, vsize: usize, field_of_view: f64) -> Self {
         let mut result = Self {
             hsize,
             vsize,
@@ -24,7 +24,7 @@ impl Camera {
         };
 
         let half_view = (field_of_view / 2.0).tan();
-        let aspect = hsize as f32 / vsize as f32;
+        let aspect = hsize as f64 / vsize as f64;
 
         if aspect >= 1.0 {
             result.half_width = half_view;
@@ -33,15 +33,15 @@ impl Camera {
             result.half_width = half_view * aspect;
             result.half_height = half_view;
         }
-        result.pixel_size = (result.half_width * 2.0) / hsize as f32;
+        result.pixel_size = (result.half_width * 2.0) / hsize as f64;
 
         result
     }
 
     fn ray_for_pixel(&self, px: usize, py: usize) -> Ray {
         // Offset from the edge of the canvas to the pixel's center.
-        let xoffset = (px as f32 + 0.5) * self.pixel_size;
-        let yoffset = (py as f32 + 0.5) * self.pixel_size;
+        let xoffset = (px as f64 + 0.5) * self.pixel_size;
+        let yoffset = (py as f64 + 0.5) * self.pixel_size;
 
         // The untransformed coordinates of the pixel in world space ​(remember that the camera looks toward -z, so +x
         // is to the *left*.)​
@@ -81,7 +81,7 @@ mod tests {
     use crate::transformations::*;
     use crate::utils::*;
     use crate::{assert_almost_eq, world::World};
-    use std::f32::consts::PI;
+    use std::f64::consts::PI;
 
     #[test]
     fn constructing_a_camera() {
@@ -132,7 +132,7 @@ mod tests {
         assert_eq!(r.origin, Tuple::point(0.0, 2.0, -5.0));
         assert_eq!(
             r.direction,
-            Tuple::vector((2.0 as f32).sqrt() / 2.0, 0.0, -(2.0 as f32).sqrt() / 2.0)
+            Tuple::vector((2.0 as f64).sqrt() / 2.0, 0.0, -(2.0 as f64).sqrt() / 2.0)
         );
     }
 

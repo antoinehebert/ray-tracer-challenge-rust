@@ -32,13 +32,13 @@ pub static WHITE: Color = Color {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Color {
-    pub red: f32,
-    pub green: f32,
-    pub blue: f32,
+    pub red: f64,
+    pub green: f64,
+    pub blue: f64,
 }
 
 impl Color {
-    pub fn new(red: f32, green: f32, blue: f32) -> Self {
+    pub fn new(red: f64, green: f64, blue: f64) -> Self {
         Self { red, green, blue }
     }
 }
@@ -75,10 +75,10 @@ impl ops::Sub<Color> for Color {
     }
 }
 
-impl ops::Mul<f32> for Color {
+impl ops::Mul<f64> for Color {
     type Output = Self;
 
-    fn mul(self, rhs: f32) -> Self::Output {
+    fn mul(self, rhs: f64) -> Self::Output {
         Self::new(self.red * rhs, self.green * rhs, self.blue * rhs)
     }
 }

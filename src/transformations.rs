@@ -1,7 +1,7 @@
 use crate::matrix::Matrix;
 use crate::tuple::Tuple;
 
-pub fn translation(x: f32, y: f32, z: f32) -> Matrix<4> {
+pub fn translation(x: f64, y: f64, z: f64) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
     result[0][3] = x;
     result[1][3] = y;
@@ -10,7 +10,7 @@ pub fn translation(x: f32, y: f32, z: f32) -> Matrix<4> {
     result
 }
 
-pub fn scaling(x: f32, y: f32, z: f32) -> Matrix<4> {
+pub fn scaling(x: f64, y: f64, z: f64) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     result[0][0] = x;
@@ -20,7 +20,7 @@ pub fn scaling(x: f32, y: f32, z: f32) -> Matrix<4> {
     result
 }
 
-pub fn rotation_x(rad: f32) -> Matrix<4> {
+pub fn rotation_x(rad: f64) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     let cos = rad.cos();
@@ -34,7 +34,7 @@ pub fn rotation_x(rad: f32) -> Matrix<4> {
     result
 }
 
-pub fn rotation_y(rad: f32) -> Matrix<4> {
+pub fn rotation_y(rad: f64) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     let cos = rad.cos();
@@ -48,7 +48,7 @@ pub fn rotation_y(rad: f32) -> Matrix<4> {
     result
 }
 
-pub fn rotation_z(rad: f32) -> Matrix<4> {
+pub fn rotation_z(rad: f64) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     let cos = rad.cos();
@@ -62,7 +62,7 @@ pub fn rotation_z(rad: f32) -> Matrix<4> {
     result
 }
 
-pub fn shearing(xy: f32, xz: f32, yx: f32, yz: f32, zx: f32, zy: f32) -> Matrix<4> {
+pub fn shearing(xy: f64, xz: f64, yx: f64, yz: f64, zx: f64, zy: f64) -> Matrix<4> {
     let mut result = Matrix::<4>::identity();
 
     result[0][1] = xy;
@@ -94,7 +94,7 @@ pub fn view_transform(from: Tuple, to: Tuple, up: Tuple) -> Matrix<4> {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::PI;
+    use std::f64::consts::PI;
 
     use super::*;
 
@@ -159,7 +159,7 @@ mod tests {
 
         assert_eq!(
             half_quarter * p,
-            Tuple::point(0., (2. as f32).sqrt() / 2., (2. as f32).sqrt() / 2.)
+            Tuple::point(0., (2. as f64).sqrt() / 2., (2. as f64).sqrt() / 2.)
         );
         assert_eq!(full_quarter * p, Tuple::point(0., 0., 1.));
     }
@@ -171,7 +171,7 @@ mod tests {
         let inv = half_quarter.inverse().expect("invertible");
         assert_eq!(
             inv * p,
-            Tuple::point(0., (2. as f32).sqrt() / 2., -(2. as f32).sqrt() / 2.)
+            Tuple::point(0., (2. as f64).sqrt() / 2., -(2. as f64).sqrt() / 2.)
         );
     }
 
@@ -183,7 +183,7 @@ mod tests {
 
         assert_eq!(
             half_quarter * p,
-            Tuple::point((2. as f32).sqrt() / 2., 0., (2. as f32).sqrt() / 2.)
+            Tuple::point((2. as f64).sqrt() / 2., 0., (2. as f64).sqrt() / 2.)
         );
         assert_eq!(full_quarter * p, Tuple::point(1., 0., 0.));
     }
@@ -196,7 +196,7 @@ mod tests {
 
         assert_eq!(
             half_quarter * p,
-            Tuple::point(-(2. as f32).sqrt() / 2., (2. as f32).sqrt() / 2., 0.)
+            Tuple::point(-(2. as f64).sqrt() / 2., (2. as f64).sqrt() / 2., 0.)
         );
         assert_eq!(full_quarter * p, Tuple::point(-1., 0., 0.));
     }

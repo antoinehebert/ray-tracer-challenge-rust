@@ -58,7 +58,7 @@ impl Canvas {
     }
 
     // Move to Color.
-    fn color_to_str(color: f32) -> String {
+    fn color_to_str(color: f64) -> String {
         ((color.clamp(0., 1.) * 255.).round() as i32).to_string()
     }
 }

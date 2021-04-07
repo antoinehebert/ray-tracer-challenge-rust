@@ -11,11 +11,11 @@ use std::ops;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Matrix<const SIZE: usize> {
-    values: [[f32; SIZE]; SIZE],
+    values: [[f64; SIZE]; SIZE],
 }
 
 impl<const SIZE: usize> Matrix<SIZE> {
-    pub fn new(values: [[f32; SIZE]; SIZE]) -> Self {
+    pub fn new(values: [[f64; SIZE]; SIZE]) -> Self {
         Self { values }
     }
 
@@ -45,7 +45,7 @@ impl<const SIZE: usize> Matrix<SIZE> {
         result
     }
 
-    fn determinant(&self) -> f32 {
+    fn determinant(&self) -> f64 {
         let mut result = 0.;
         if SIZE == 2 {
             result = self[0][0] * self[1][1] - self[0][1] * self[1][0];
@@ -119,7 +119,7 @@ impl<const SIZE: usize> Matrix<SIZE> {
         result
     }
 
-    fn minor(&self, row: usize, col: usize) -> f32 {
+    fn minor(&self, row: usize, col: usize) -> f64 {
         if SIZE == 4 {
             self.submatrix3(row, col).determinant()
         } else if SIZE == 3 {
@@ -133,7 +133,7 @@ impl<const SIZE: usize> Matrix<SIZE> {
     }
 
     // Using RES_SIZE here instead of SIZE-1 because it doesn't work yet...
-    fn cofactor(&self, row: usize, col: usize) -> f32 {
+    fn cofactor(&self, row: usize, col: usize) -> f64 {
         let result = self.minor(row, col);
         if (row + col) % 2 == 0 {
             result
@@ -165,7 +165,7 @@ impl<const SIZE: usize> Matrix<SIZE> {
 }
 
 impl<const SIZE: usize> ops::Index<usize> for Matrix<SIZE> {
-    type Output = [f32; SIZE];
+    type Output = [f64; SIZE];
 
     fn index(&self, idx: usize) -> &Self::Output {
         &self.values[idx]
