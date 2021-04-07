@@ -60,8 +60,8 @@ impl World {
             &comps.point,
             &comps.eyev,
             &comps.normalv,
-            false,
-        ) // fix in shadow!
+            self.is_shadowed(&comps.over_point),
+        )
     }
 
     pub fn color_at(&self, ray: &Ray) -> Color {
@@ -94,8 +94,8 @@ impl World {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::assert_almost_eq;
     use crate::utils::*;
+    use crate::{assert_almost_eq, transformations::translation};
 
     #[test]
     fn creating_a_world() {
@@ -220,19 +220,23 @@ mod tests {
         assert!(!w.is_shadowed(&p));
     }
 
-    // Scenario: shade_hit() is given an intersection in shadow
-    //   Given w â† world()
-    //     And w.light â† point_light(point(0, 0, -10), color(1, 1, 1))
-    //     And s1 â† sphere()
-    //     And s1 is added to w
-    //     And s2 â† sphere() with:
-    //       | transform | translation(0, 0, 10) |
-    //     And s2 is added to w
-    //     And r â† ray(point(0, 0, 5), vector(0, 0, 1))
-    //     And i â† intersection(4, s2)
-    //   When comps â† prepare_computations(i, r)
-    //     And c â† shade_hit(w, comps)
-    //   Then c = color(0.1, 0.1, 0.1)
+    #[test]
+    fn shade_hit_is_given_an_intersection_in_shadow() {
+        let light = Light::new(Tuple::point(0.0, 0.0, -10.0), WHITE);
+        let mut w = World::new(light);
+        let s1 = Sphere::new();
+        w.objects.push(s1);
+        let mut s2 = Sphere::new();
+        s2.transform(translation(0.0, 0.0, 10.0));
+        w.objects.push(s2);
+
+        let r = Ray::new(Tuple::point(0.0, 0.0, 5.0), Tuple::vector(0.0, 0.0, 1.0));
+        let i = Intersection::new(4.0, &w.objects[1]);
+        let comps = i.prepare_computations(&r);
+        let c = w.shade_hit(&comps);
+
+        assert_eq!(c, Color::new(0.1, 0.1, 0.1));
+    }
 
     // Scenario: The reflected color for a nonreflective material
     //   Given w â† default_world()

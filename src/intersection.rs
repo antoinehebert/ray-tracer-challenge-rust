@@ -1,7 +1,7 @@
 use crate::ray::Ray;
 use crate::sphere::*;
 use crate::tuple::Tuple;
-
+use crate::utils::*;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Intersection<'a> {
     pub t: f32, // intersection "time"
@@ -27,6 +27,7 @@ impl<'a> Intersection<'a> {
             t: self.t,
             object: self.object,
             point,
+            over_point: point + normalv * EPSILON,
             eyev,
             inside,
             normalv,
@@ -40,6 +41,7 @@ pub struct Computations<'a> {
     pub t: f32,
     pub object: &'a Sphere,
     pub point: Tuple,
+    pub over_point: Tuple, // Prevent acne effect.
     pub eyev: Tuple,
     pub inside: bool,
     pub normalv: Tuple,
@@ -54,6 +56,8 @@ pub fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
 
 #[cfg(test)]
 mod tests {
+    use crate::{assert_almost_eq, transformations::translation};
+
     use super::*;
 
     #[test]
@@ -167,15 +171,16 @@ mod tests {
         assert_eq!(comps.normalv, Tuple::vector(0.0, 0.0, -1.0));
     }
 
-    // Scenario: The hit should offset the point
-    //   Given r â† ray(point(0, 0, -5), vector(0, 0, 1))
-    //     And shape â† sphere() with:
-    //       | transform | translation(0, 0, 1) |
-    //     And i â† intersection(5, shape)
-    //   When comps â† prepare_computations(i, r)
-    //   Then comps.over_point.z < -EPSILON/2
-    //     And comps.point.z > comps.over_point.z
-
+    #[test]
+    fn the_hit_should_offset_the_point() {
+        let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
+        let mut shape = Sphere::new();
+        shape.transform(translation(0.0, 0.0, 1.0));
+        let i = Intersection::new(5.0, &shape);
+        let comps = i.prepare_computations(&r);
+        assert!(comps.over_point.z < -EPSILON / 2.0);
+        assert!(comps.point.z > comps.over_point.z);
+    }
     // Scenario: The under point is offset below the surface
     //   Given r â† ray(point(0, 0, -5), vector(0, 0, 1))
     //     And shape â† glass_sphere() with:
