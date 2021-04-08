@@ -1,5 +1,5 @@
 # Introduction
-Rust implementation of a basic ray tracer, following the book [The Ray Tracer Challenge](http://www.raytracerchallenge.com/) by [Jamis Buck](https://github.com/jamis).
+Learning Rust by implementing a basic ray tracer, following the book [The Ray Tracer Challenge](http://www.raytracerchallenge.com/) by [Jamis Buck](https://github.com/jamis).
 
 # Prerequisite
 
@@ -14,5 +14,6 @@ Rust implementation of a basic ray tracer, following the book [The Ray Tracer Ch
     cargo run > putting_it_together.ppm && open putting_it_together.ppm
 
 # TODOs
-- Optimize!
+- Optimize! This is slooooooow.
 - Save to file directly instead of outputting a String.
+- Rename Tuple to Vector4 or something that makes more sense to me.
