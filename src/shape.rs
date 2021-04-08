@@ -1,33 +1,93 @@
 use crate::{
-    intersection::Intersections, material::Material, matrix::Matrix, ray::Ray, tuple::Tuple,
+    intersection::{Intersection, Intersections},
+    material::Material,
+    matrix::Matrix,
+    ray::Ray,
+    tuple::Tuple,
 };
 
-pub trait Shape {
-    // TODO: Is there a way to have fields in traits, or to DRY because all shapes will have a transform and a material.
-    fn transform(&self) -> &Matrix<4>;
-    fn set_transform(&mut self, transform: Matrix<4>);
+#[derive(Debug, PartialEq)]
+pub enum Shape {
+    Sphere {
+        transform: Matrix<4>,
+        material: Material,
+    },
+}
 
-    fn material(&self) -> &Material;
-    fn set_material(&mut self, material: Material);
+impl Shape {
+    pub fn sphere() -> Self {
+        Shape::Sphere {
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }
+    }
+
+    pub fn transform(&self) -> &Matrix<4> {
+        match self {
+            Shape::Sphere { transform, .. } => transform,
+        }
+    }
+
+    pub fn set_transform(&mut self, new_transform: Matrix<4>) {
+        match self {
+            Shape::Sphere { transform, .. } => *transform = new_transform,
+        };
+    }
+
+    pub fn material(&self) -> &Material {
+        match self {
+            Shape::Sphere { material, .. } => material,
+        }
+    }
+
+    pub fn set_material(&mut self, new_material: Material) {
+        match self {
+            Shape::Sphere { material, .. } => *material = new_material,
+        };
+    }
 
     // Returns intersection points (time) along `ray`.
-    fn intersect(&self, world_ray: &Ray) -> Intersections {
+    pub fn intersect(&self, world_ray: &Ray) -> Intersections {
         let local_ray = world_ray.transform(
             self.transform()
                 .inverse()
                 .expect("shape transfor should be invertible"),
         );
-        self.local_intersect(&local_ray)
+
+        match self {
+            Shape::Sphere { .. } => {
+                // The sphere is always centered at the world origin...
+                let sphere_to_ray = local_ray.origin - Tuple::point(0., 0., 0.);
+                let a = local_ray.direction.dot(&local_ray.direction);
+                let b = 2. * local_ray.direction.dot(&sphere_to_ray);
+                let c = sphere_to_ray.dot(&sphere_to_ray) - 1.;
+
+                // Classic quadratic formula!
+                let discriminant = b.powf(2.) - 4. * a * c;
+
+                let mut result = Vec::new();
+
+                if discriminant >= 0. {
+                    let sqrt = discriminant.sqrt();
+                    result.push(Intersection::new((-b - sqrt) / (2. * a), &self));
+                    result.push(Intersection::new((-b + sqrt) / (2. * a), &self));
+                }
+
+                result
+            }
+        }
     }
 
-    fn normal_at(&self, world_point: &Tuple) -> Tuple {
+    pub fn normal_at(&self, world_point: &Tuple) -> Tuple {
         let sphere_inverted_transform = self
             .transform()
             .inverse()
             .expect("Transform should be invertible");
         let local_point = sphere_inverted_transform * *world_point;
 
-        let local_normal = self.local_normal_at(&local_point);
+        let local_normal = match self {
+            Shape::Sphere { .. } => local_point - Tuple::point(0., 0., 0.),
+        };
 
         let mut world_normal = sphere_inverted_transform.transpose() * local_normal;
         // Hack: Instead of removing any translation by taking a 3x3 submatrix of the transform, we just set w to 0.
@@ -35,79 +95,26 @@ pub trait Shape {
 
         world_normal.normalize()
     }
-
-    //
-    // Private:
-    // TODO: Can we have private methods on traits?
-    //
-    fn local_intersect(&self, local_ray: &Ray) -> Intersections;
-    fn local_normal_at(&self, local_point: &Tuple) -> Tuple;
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::matrix::Matrix;
-    use crate::transformations::*;
-    use crate::tuple::Tuple;
     use std::f64::consts::PI;
 
-    // Can't set this in TestShape directly, because local_intersect can't mutate self...
-    // TODO: Figure out if there's a better way of doing this in Rust.
-    static mut saved_ray: Option<Ray> = None;
+    use super::*;
+    use crate::assert_almost_eq;
+    use crate::transformations::*;
+    use crate::utils::*;
 
-    struct TestShape {
-        transform: Matrix<4>,
-        material: Material,
-    }
-
-    impl Shape for TestShape {
-        fn transform(&self) -> &Matrix<4> {
-            &self.transform
-        }
-
-        fn set_transform(&mut self, transform: Matrix<4>) {
-            self.transform = transform;
-        }
-
-        fn material(&self) -> &Material {
-            &self.material
-        }
-
-        fn set_material(&mut self, material: Material) {
-            self.material = material
-        }
-
-        fn local_intersect(&self, ray: &Ray) -> Intersections {
-            unsafe {
-                saved_ray = Some(ray.clone());
-            }
-            Vec::new()
-        }
-
-        fn local_normal_at(&self, local_point: &Tuple) -> Tuple {
-            local_point.clone()
-        }
-    }
-
-    fn test_shape() -> TestShape {
-        TestShape {
-            transform: Matrix::identity(),
-            material: Material::new(),
-        }
-    }
-
-    // Is this really testing something meaningful? As far as I can tell it's impossible have an abstract parent class
-    // like in C++, that would hold a common field and default implementation...
     #[test]
     fn the_default_transformation() {
-        let s = test_shape();
+        let s = Shape::sphere();
         assert_eq!(*s.transform(), Matrix::identity());
     }
 
     #[test]
     fn assigning_a_transformation() {
-        let mut s = test_shape();
+        let mut s = Shape::sphere();
         s.set_transform(translation(2.0, 3.0, 4.0));
 
         assert_eq!(*s.transform(), translation(2.0, 3.0, 4.0));
@@ -115,7 +122,7 @@ mod tests {
 
     #[test]
     fn the_default_material() {
-        let s = test_shape();
+        let s = Shape::sphere();
         let m = s.material();
 
         assert_eq!(*m, Material::new());
@@ -123,59 +130,222 @@ mod tests {
 
     #[test]
     fn assigning_a_material() {
-        let mut s = test_shape();
+        let mut s = Shape::sphere();
         let mut m = Material::new();
         m.ambient = 1.0;
-        s.material = m;
+        s.set_material(m);
         assert_eq!(*s.material(), m);
     }
 
     #[test]
-    fn intersecting_a_scaled_shape_with_a_ray() {
-        let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
-        let mut s = test_shape();
-        s.set_transform(scaling(2.0, 2.0, 2.0));
-        let _xs = s.intersect(&r);
+    fn a_ray_intersects_a_sphere_at_two_points() {
+        let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let s = Shape::sphere();
 
-        unsafe {
-            assert_eq!(saved_ray.unwrap().origin, Tuple::point(0.0, 0.0, -2.5));
-            assert_eq!(saved_ray.unwrap().direction, Tuple::vector(0.0, 0.0, 0.5));
-        }
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 2);
+        assert_almost_eq!(xs[0].t, 4.0);
+        assert_almost_eq!(xs[1].t, 6.0);
     }
 
     #[test]
-    fn intersecting_a_translated_shape_with_a_ray() {
-        let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
-        let mut s = test_shape();
-        s.set_transform(translation(5.0, 0.0, 0.0));
-        let _xs = s.intersect(&r);
+    fn a_ray_intersects_a_sphere_at_a_tangent() {
+        let r = Ray::new(Tuple::point(0., 1., -5.), Tuple::vector(0., 0., 1.));
+        let s = Shape::sphere();
 
-        unsafe {
-            assert_eq!(saved_ray.unwrap().origin, Tuple::point(-5.0, 0.0, -5.0));
-            assert_eq!(saved_ray.unwrap().direction, Tuple::vector(0.0, 0.0, 1.0));
-        }
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 2);
+        assert_almost_eq!(xs[0].t, 5.0);
+        assert_almost_eq!(xs[1].t, 5.0);
     }
 
     #[test]
-    fn computing_the_normal_on_a_translated_shape() {
-        let mut s = test_shape();
-        s.set_transform(translation(0.0, 1.0, 0.0));
-        let n = s.normal_at(&Tuple::point(0.0, 1.70711, -0.70711));
-        assert_eq!(n, Tuple::vector(0.0, 0.70711, -0.70711));
+    fn a_ray_misses_a_sphere() {
+        let r = Ray::new(Tuple::point(0., 2., -5.), Tuple::vector(0., 0., 1.));
+        let s = Shape::sphere();
+
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 0);
     }
 
     #[test]
-    fn computing_the_normal_on_a_transformed_shape() {
-        let mut s = test_shape();
-        let m = scaling(1.0, 0.5, 1.0) * rotation_z(PI / 5.0);
+    fn a_ray_originates_inside_a_sphere() {
+        let r = Ray::new(Tuple::point(0., 0., 0.), Tuple::vector(0., 0., 1.));
+        let s = Shape::sphere();
+
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 2);
+        assert_almost_eq!(xs[0].t, -1.0);
+        assert_almost_eq!(xs[1].t, 1.0);
+    }
+
+    #[test]
+    fn a_sphere_is_behind_a_ray() {
+        let r = Ray::new(Tuple::point(0., 0., 5.), Tuple::vector(0., 0., 1.));
+        let s = Shape::sphere();
+
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 2);
+        assert_almost_eq!(xs[0].t, -6.0);
+        assert_almost_eq!(xs[1].t, -4.0);
+    }
+
+    #[test]
+    fn intersect_sets_the_object_on_the_intersection() {
+        let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let s = Shape::sphere();
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 2);
+        assert_eq!(xs[0].object, &s);
+        assert_eq!(xs[1].object, &s);
+    }
+
+    #[test]
+    fn a_sphere_s_default_transformations() {
+        let s = Shape::sphere();
+        assert_eq!(*s.transform(), Matrix::<4>::identity())
+    }
+
+    #[test]
+    fn changing_a_sphere_s_transformations() {
+        let mut s = Shape::sphere();
+        let t = translation(2., 3., 4.);
+        s.set_transform(t);
+
+        assert_eq!(*s.transform(), t)
+    }
+
+    #[test]
+    fn intersecting_a_scaled_sphere_with_a_ray() {
+        let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let mut s = Shape::sphere();
+
+        s.set_transform(scaling(2., 2., 2.));
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 2);
+        assert_almost_eq!(xs[0].t, 3.);
+        assert_almost_eq!(xs[1].t, 7.);
+    }
+
+    #[test]
+    fn intersecting_a_translated_sphere_with_a_ray() {
+        let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let mut s = Shape::sphere();
+
+        s.set_transform(translation(5., 0., 0.));
+        let xs = s.intersect(&r);
+
+        assert_eq!(xs.len(), 0);
+    }
+    #[test]
+    fn the_normal_on_a_sphere_at_a_point_on_the_x_axis() {
+        let s = Shape::sphere();
+        let n = s.normal_at(&Tuple::point(1., 0., 0.));
+        assert_eq!(n, Tuple::vector(1., 0., 0.));
+    }
+
+    #[test]
+    fn the_normal_on_a_sphere_at_a_point_on_the_y_axis() {
+        let s = Shape::sphere();
+        let n = s.normal_at(&Tuple::point(0., 1., 0.));
+        assert_eq!(n, Tuple::vector(0., 1., 0.));
+    }
+
+    #[test]
+    fn the_normal_on_a_sphere_at_a_point_on_the_z_axis() {
+        let s = Shape::sphere();
+        let n = s.normal_at(&Tuple::point(0., 0., 1.));
+        assert_eq!(n, Tuple::vector(0., 0., 1.));
+    }
+
+    #[test]
+    fn the_normal_on_a_sphere_at_a_nonaxial_point() {
+        let s = Shape::sphere();
+        let n = s.normal_at(&Tuple::point(
+            (3. as f64).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
+        ));
+        assert_eq!(
+            n,
+            Tuple::vector(
+                (3. as f64).sqrt() / 3.,
+                (3. as f64).sqrt() / 3.,
+                (3. as f64).sqrt() / 3.
+            )
+        );
+    }
+
+    #[test]
+    fn the_normal_is_a_normalized_vector() {
+        let s = Shape::sphere();
+        let n = s.normal_at(&Tuple::point(
+            (3. as f64).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
+            (3. as f64).sqrt() / 3.,
+        ));
+        assert_eq!(n, n.normalize());
+    }
+
+    #[test]
+    fn computing_the_normal_on_a_translated_sphere() {
+        let mut s = Shape::sphere();
+        s.set_transform(translation(0., 1., 0.));
+
+        let n = s.normal_at(&Tuple::point(0., 1.70711, -0.70711));
+        assert_eq!(n, Tuple::vector(0., 0.70711, -0.70711));
+    }
+
+    #[test]
+    fn computing_the_normal_on_a_transformed_sphere() {
+        let mut s = Shape::sphere();
+        let m = scaling(1., 0.5, 1.) * rotation_z(PI / 5.);
         s.set_transform(m);
         let n = s.normal_at(&Tuple::point(
-            0.0,
-            (2.0 as f64).sqrt() / 2.0,
-            -(2.0 as f64).sqrt() / 2.0,
+            0.,
+            (2 as f64).sqrt() / 2.,
+            -(2 as f64).sqrt() / 2.,
         ));
-        assert_eq!(n, Tuple::vector(0.0, 0.97014, -0.24254));
+        assert_eq!(n, Tuple::vector(0., 0.97014, -0.24254));
     }
+
+    #[test]
+    fn a_sphere_has_a_default_material() {
+        let s = Shape::sphere();
+        let m = *s.material();
+
+        assert_eq!(m, Material::new());
+    }
+
+    #[test]
+    fn a_sphere_may_be_assigned_a_material() {
+        let mut s = Shape::sphere();
+        let mut m = Material::new();
+        m.ambient = 1.234;
+        s.set_material(m);
+        assert_eq!(*s.material(), m);
+    }
+
+    //
+    // Old Sphere tests
+    //
+
+    // Scenario: A helper for producing a sphere with a glassy material
+    //   Given s â† glass_sphere()
+    //   Then s.transform = identity_matrix
+    //     And s.material.transparency = 1.0
+    //     And s.material.refractive_index = 1.5
+
+    //
+    // Old Shape tests
+    //
 
     // Scenario: A shape has a parent attribute
     //   Given s â† test_shape()

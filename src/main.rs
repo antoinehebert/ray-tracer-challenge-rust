@@ -7,7 +7,6 @@ mod material;
 mod matrix;
 mod ray;
 mod shape;
-mod sphere;
 mod test_utils;
 mod transformations;
 mod tuple;
@@ -21,7 +20,6 @@ use color::{Color, WHITE};
 use light::Light;
 use material::Material;
 use shape::Shape;
-use sphere::Sphere;
 use transformations::*;
 use tuple::Tuple;
 use world::World;
@@ -35,14 +33,14 @@ fn main() {
 //
 fn chapter_8_shadows() {
     // Floors and walls are extremely flatten spheres...
-    let mut floor = Sphere::new();
+    let mut floor = Shape::sphere();
     floor.set_transform(scaling(10.0, 0.01, 10.));
     let mut material = Material::new();
     material.color = Color::new(1.0, 0.9, 0.9);
     material.specular = 0.0;
     floor.set_material(material);
 
-    let mut left_wall = Sphere::new();
+    let mut left_wall = Shape::sphere();
     left_wall.set_transform(
         translation(0.0, 0.0, 5.0)
             * rotation_y(-PI / 4.0)
@@ -51,7 +49,7 @@ fn chapter_8_shadows() {
     );
     left_wall.set_material(floor.material().clone());
 
-    let mut right_wall = Sphere::new();
+    let mut right_wall = Shape::sphere();
     right_wall.set_transform(
         translation(0.0, 0.0, 5.0)
             * rotation_y(PI / 4.0)
@@ -60,7 +58,7 @@ fn chapter_8_shadows() {
     );
     right_wall.set_material(floor.material().clone());
 
-    let mut middle = Sphere::new();
+    let mut middle = Shape::sphere();
     middle.set_transform(translation(-0.5, 1.0, 0.5));
     let mut material = Material::new();
     material.color = Color::new(0.1, 1.0, 0.5);
@@ -68,7 +66,7 @@ fn chapter_8_shadows() {
     material.specular = 0.3;
     middle.set_material(material);
 
-    let mut right = Sphere::new();
+    let mut right = Shape::sphere();
     right.set_transform(translation(1.5, 0.5, -0.5) * scaling(0.5, 0.5, 0.5));
     let mut material = Material::new();
     material.color = Color::new(0.5, 1.0, 0.1);
@@ -76,7 +74,7 @@ fn chapter_8_shadows() {
     material.specular = 0.3;
     right.set_material(material);
 
-    let mut left = Sphere::new();
+    let mut left = Shape::sphere();
     left.set_transform(translation(-1.5, 0.33, -0.75) * scaling(0.33, 0.33, 0.33));
     let mut material = Material::new();
     material.color = Color::new(1.0, 0.8, 0.1);

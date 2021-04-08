@@ -5,13 +5,12 @@ use crate::{
     material::Material,
     ray::Ray,
     shape::Shape,
-    sphere::Sphere,
     transformations::scaling,
     tuple::Tuple,
 };
 
 pub struct World {
-    pub objects: Vec<Sphere>,
+    pub objects: Vec<Shape>,
     pub light: Light,
 }
 
@@ -30,10 +29,10 @@ impl World {
         material.color = Color::new(0.8, 1.0, 0.6);
         material.diffuse = 0.7;
         material.specular = 0.2;
-        let mut s1 = Sphere::new();
+        let mut s1 = Shape::sphere();
         s1.set_material(material);
 
-        let mut s2 = Sphere::new();
+        let mut s2 = Shape::sphere();
         s2.set_transform(scaling(0.5, 0.5, 0.5));
 
         Self {
@@ -114,10 +113,10 @@ mod tests {
         material.color = Color::new(0.8, 1.0, 0.6);
         material.diffuse = 0.7;
         material.specular = 0.2;
-        let mut s1 = Sphere::new();
+        let mut s1 = Shape::sphere();
         s1.set_material(material);
 
-        let mut s2 = Sphere::new();
+        let mut s2 = Shape::sphere();
         s2.set_transform(scaling(0.5, 0.5, 0.5));
 
         let w = World::default_world();
@@ -227,9 +226,9 @@ mod tests {
     fn shade_hit_is_given_an_intersection_in_shadow() {
         let light = Light::new(Tuple::point(0.0, 0.0, -10.0), WHITE);
         let mut w = World::new(light);
-        let s1 = Sphere::new();
+        let s1 = Shape::sphere();
         w.objects.push(s1);
-        let mut s2 = Sphere::new();
+        let mut s2 = Shape::sphere();
         s2.set_transform(translation(0.0, 0.0, 10.0));
         w.objects.push(s2);
 
