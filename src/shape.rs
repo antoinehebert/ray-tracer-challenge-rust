@@ -7,55 +7,36 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq)]
-pub enum Shape {
-    Sphere {
-        transform: Matrix<4>,
-        material: Material,
-    },
+enum ShapeKind {
+    Sphere,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Shape {
+    pub transform: Matrix<4>,
+    pub material: Material,
+    kind: ShapeKind,
 }
 
 impl Shape {
     pub fn sphere() -> Self {
-        Shape::Sphere {
+        Shape {
             transform: Matrix::<4>::identity(),
             material: Material::new(),
+            kind: ShapeKind::Sphere,
         }
-    }
-
-    pub fn transform(&self) -> &Matrix<4> {
-        match self {
-            Shape::Sphere { transform, .. } => transform,
-        }
-    }
-
-    pub fn set_transform(&mut self, new_transform: Matrix<4>) {
-        match self {
-            Shape::Sphere { transform, .. } => *transform = new_transform,
-        };
-    }
-
-    pub fn material(&self) -> &Material {
-        match self {
-            Shape::Sphere { material, .. } => material,
-        }
-    }
-
-    pub fn set_material(&mut self, new_material: Material) {
-        match self {
-            Shape::Sphere { material, .. } => *material = new_material,
-        };
     }
 
     // Returns intersection points (time) along `ray`.
     pub fn intersect(&self, world_ray: &Ray) -> Intersections {
         let local_ray = world_ray.transform(
-            self.transform()
+            self.transform
                 .inverse()
                 .expect("shape transfor should be invertible"),
         );
 
-        match self {
-            Shape::Sphere { .. } => {
+        match self.kind {
+            ShapeKind::Sphere { .. } => {
                 // The sphere is always centered at the world origin...
                 let sphere_to_ray = local_ray.origin - Tuple::point(0., 0., 0.);
                 let a = local_ray.direction.dot(&local_ray.direction);
@@ -80,13 +61,13 @@ impl Shape {
 
     pub fn normal_at(&self, world_point: &Tuple) -> Tuple {
         let sphere_inverted_transform = self
-            .transform()
+            .transform
             .inverse()
             .expect("Transform should be invertible");
         let local_point = sphere_inverted_transform * *world_point;
 
-        let local_normal = match self {
-            Shape::Sphere { .. } => local_point - Tuple::point(0., 0., 0.),
+        let local_normal = match self.kind {
+            ShapeKind::Sphere { .. } => local_point - Tuple::point(0., 0., 0.),
         };
 
         let mut world_normal = sphere_inverted_transform.transpose() * local_normal;
@@ -109,23 +90,23 @@ mod tests {
     #[test]
     fn the_default_transformation() {
         let s = Shape::sphere();
-        assert_eq!(*s.transform(), Matrix::identity());
+        assert_eq!(s.transform, Matrix::identity());
     }
 
     #[test]
     fn assigning_a_transformation() {
         let mut s = Shape::sphere();
-        s.set_transform(translation(2.0, 3.0, 4.0));
+        s.transform = translation(2.0, 3.0, 4.0);
 
-        assert_eq!(*s.transform(), translation(2.0, 3.0, 4.0));
+        assert_eq!(s.transform, translation(2.0, 3.0, 4.0));
     }
 
     #[test]
     fn the_default_material() {
         let s = Shape::sphere();
-        let m = s.material();
+        let m = s.material;
 
-        assert_eq!(*m, Material::new());
+        assert_eq!(m, Material::new());
     }
 
     #[test]
@@ -133,8 +114,8 @@ mod tests {
         let mut s = Shape::sphere();
         let mut m = Material::new();
         m.ambient = 1.0;
-        s.set_material(m);
-        assert_eq!(*s.material(), m);
+        s.material = m;
+        assert_eq!(s.material, m);
     }
 
     #[test]
@@ -209,16 +190,16 @@ mod tests {
     #[test]
     fn a_sphere_s_default_transformations() {
         let s = Shape::sphere();
-        assert_eq!(*s.transform(), Matrix::<4>::identity())
+        assert_eq!(s.transform, Matrix::<4>::identity())
     }
 
     #[test]
     fn changing_a_sphere_s_transformations() {
         let mut s = Shape::sphere();
         let t = translation(2., 3., 4.);
-        s.set_transform(t);
+        s.transform = t;
 
-        assert_eq!(*s.transform(), t)
+        assert_eq!(s.transform, t)
     }
 
     #[test]
@@ -226,7 +207,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let mut s = Shape::sphere();
 
-        s.set_transform(scaling(2., 2., 2.));
+        s.transform = scaling(2., 2., 2.);
         let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 2);
@@ -239,7 +220,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let mut s = Shape::sphere();
 
-        s.set_transform(translation(5., 0., 0.));
+        s.transform = translation(5., 0., 0.);
         let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 0);
@@ -297,7 +278,7 @@ mod tests {
     #[test]
     fn computing_the_normal_on_a_translated_sphere() {
         let mut s = Shape::sphere();
-        s.set_transform(translation(0., 1., 0.));
+        s.transform = translation(0., 1., 0.);
 
         let n = s.normal_at(&Tuple::point(0., 1.70711, -0.70711));
         assert_eq!(n, Tuple::vector(0., 0.70711, -0.70711));
@@ -307,7 +288,7 @@ mod tests {
     fn computing_the_normal_on_a_transformed_sphere() {
         let mut s = Shape::sphere();
         let m = scaling(1., 0.5, 1.) * rotation_z(PI / 5.);
-        s.set_transform(m);
+        s.transform = m;
         let n = s.normal_at(&Tuple::point(
             0.,
             (2 as f64).sqrt() / 2.,
@@ -319,7 +300,7 @@ mod tests {
     #[test]
     fn a_sphere_has_a_default_material() {
         let s = Shape::sphere();
-        let m = *s.material();
+        let m = s.material;
 
         assert_eq!(m, Material::new());
     }
@@ -329,8 +310,8 @@ mod tests {
         let mut s = Shape::sphere();
         let mut m = Material::new();
         m.ambient = 1.234;
-        s.set_material(m);
-        assert_eq!(*s.material(), m);
+        s.material = m;
+        assert_eq!(s.material, m);
     }
 
     //

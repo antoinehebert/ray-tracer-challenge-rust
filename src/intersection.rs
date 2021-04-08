@@ -176,7 +176,7 @@ mod tests {
     fn the_hit_should_offset_the_point() {
         let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
         let mut shape = Shape::sphere();
-        shape.set_transform(translation(0.0, 0.0, 1.0));
+        shape.transform = translation(0.0, 0.0, 1.0);
         let i = Intersection::new(5.0, &shape);
         let comps = i.prepare_computations(&r);
         assert!(comps.over_point.z < -EPSILON / 2.0);

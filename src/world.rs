@@ -25,15 +25,13 @@ impl World {
     pub fn default_world() -> Self {
         let light = Light::new(Tuple::point(-10.0, 10.0, -10.0), WHITE);
 
-        let mut material = Material::new();
-        material.color = Color::new(0.8, 1.0, 0.6);
-        material.diffuse = 0.7;
-        material.specular = 0.2;
         let mut s1 = Shape::sphere();
-        s1.set_material(material);
+        s1.material.color = Color::new(0.8, 1.0, 0.6);
+        s1.material.diffuse = 0.7;
+        s1.material.specular = 0.2;
 
         let mut s2 = Shape::sphere();
-        s2.set_transform(scaling(0.5, 0.5, 0.5));
+        s2.transform = scaling(0.5, 0.5, 0.5);
 
         Self {
             objects: vec![s1, s2],
@@ -55,7 +53,7 @@ impl World {
     }
 
     fn shade_hit(&self, comps: &Computations) -> Color {
-        comps.object.material().lighting(
+        comps.object.material.lighting(
             &self.light,
             &comps.point,
             &comps.eyev,
@@ -109,15 +107,13 @@ mod tests {
     fn the_default_world() {
         let light = Light::new(Tuple::point(-10.0, 10.0, -10.0), WHITE);
 
-        let mut material = Material::new();
-        material.color = Color::new(0.8, 1.0, 0.6);
-        material.diffuse = 0.7;
-        material.specular = 0.2;
         let mut s1 = Shape::sphere();
-        s1.set_material(material);
+        s1.material.color = Color::new(0.8, 1.0, 0.6);
+        s1.material.diffuse = 0.7;
+        s1.material.specular = 0.2;
 
         let mut s2 = Shape::sphere();
-        s2.set_transform(scaling(0.5, 0.5, 0.5));
+        s2.transform = scaling(0.5, 0.5, 0.5);
 
         let w = World::default_world();
 
@@ -182,13 +178,11 @@ mod tests {
     #[test]
     fn the_color_with_an_intersection_behind_the_ray() {
         let mut w = World::default_world();
-        let mut material = Material::new();
-        material.ambient = 1.0;
-        w.objects[0].set_material(material);
-        w.objects[1].set_material(material);
+        w.objects[0].material.ambient = 1.0;
+        w.objects[1].material.ambient = 1.0;
         let r = Ray::new(Tuple::point(0.0, 0.0, 0.75), Tuple::vector(0.0, 0.0, -1.0));
         let c = w.color_at(&r);
-        assert_eq!(c, w.objects[1].material().color);
+        assert_eq!(c, w.objects[1].material.color);
     }
 
     #[test]
@@ -229,7 +223,7 @@ mod tests {
         let s1 = Shape::sphere();
         w.objects.push(s1);
         let mut s2 = Shape::sphere();
-        s2.set_transform(translation(0.0, 0.0, 10.0));
+        s2.transform = translation(0.0, 0.0, 10.0);
         w.objects.push(s2);
 
         let r = Ray::new(Tuple::point(0.0, 0.0, 5.0), Tuple::vector(0.0, 0.0, 1.0));
