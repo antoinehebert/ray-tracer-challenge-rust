@@ -1,7 +1,9 @@
 use crate::ray::Ray;
+use crate::shape::Shape;
 use crate::sphere::*;
 use crate::tuple::Tuple;
 use crate::utils::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Intersection<'a> {
     pub t: f64, // intersection "time"
@@ -16,7 +18,7 @@ impl<'a> Intersection<'a> {
     pub fn prepare_computations(&self, ray: &Ray) -> Computations {
         let point = ray.position(self.t);
         let eyev = -ray.direction;
-        let mut normalv = self.object.normal_at(point);
+        let mut normalv = self.object.normal_at(&point);
 
         let inside = normalv.dot(&eyev) < 0.0;
         if inside {
@@ -56,7 +58,7 @@ pub fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{assert_almost_eq, transformations::translation};
+    use crate::transformations::translation;
 
     use super::*;
 
@@ -175,7 +177,7 @@ mod tests {
     fn the_hit_should_offset_the_point() {
         let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
         let mut shape = Sphere::new();
-        shape.transform(translation(0.0, 0.0, 1.0));
+        shape.set_transform(translation(0.0, 0.0, 1.0));
         let i = Intersection::new(5.0, &shape);
         let comps = i.prepare_computations(&r);
         assert!(comps.over_point.z < -EPSILON / 2.0);

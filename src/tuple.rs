@@ -78,6 +78,8 @@ impl Tuple {
 
     // Vector is reflected around the normal at the point where it hits the object.
     pub fn reflect(&self, normal: &Self) -> Self {
+        assert!(self.is_vector());
+
         (*self) - (*normal) * 2. * self.dot(normal)
     }
 }

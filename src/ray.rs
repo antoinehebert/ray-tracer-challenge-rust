@@ -1,6 +1,7 @@
+use crate::matrix::Matrix;
 use crate::tuple::Tuple;
-use crate::{matrix::Matrix, transformations::*};
 
+#[derive(Copy, Clone)]
 pub struct Ray {
     pub origin: Tuple,
     pub direction: Tuple,
@@ -26,6 +27,7 @@ impl Ray {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::transformations::*;
 
     #[test]
     fn creating_and_querying_a_ray() {

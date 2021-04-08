@@ -1,4 +1,3 @@
-use crate::assert_almost_eq;
 use crate::tuple::*;
 use crate::utils::*;
 use std::ops;
@@ -236,6 +235,7 @@ impl ops::Mul<Tuple> for Matrix<4> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_almost_eq;
 
     #[test]
     fn constructing_and_inspecting_a_4x4_matrix() {

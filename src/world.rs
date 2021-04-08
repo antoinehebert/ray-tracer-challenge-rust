@@ -4,6 +4,7 @@ use crate::{
     light::Light,
     material::Material,
     ray::Ray,
+    shape::Shape,
     sphere::Sphere,
     transformations::scaling,
     tuple::Tuple,
@@ -30,10 +31,10 @@ impl World {
         material.diffuse = 0.7;
         material.specular = 0.2;
         let mut s1 = Sphere::new();
-        s1.material = material;
+        s1.set_material(material);
 
         let mut s2 = Sphere::new();
-        s2.transform(scaling(0.5, 0.5, 0.5));
+        s2.set_transform(scaling(0.5, 0.5, 0.5));
 
         Self {
             objects: vec![s1, s2],
@@ -55,7 +56,7 @@ impl World {
     }
 
     fn shade_hit(&self, comps: &Computations) -> Color {
-        comps.object.material.lighting(
+        comps.object.material().lighting(
             &self.light,
             &comps.point,
             &comps.eyev,
@@ -114,10 +115,10 @@ mod tests {
         material.diffuse = 0.7;
         material.specular = 0.2;
         let mut s1 = Sphere::new();
-        s1.material = material;
+        s1.set_material(material);
 
         let mut s2 = Sphere::new();
-        s2.transform(scaling(0.5, 0.5, 0.5));
+        s2.set_transform(scaling(0.5, 0.5, 0.5));
 
         let w = World::default_world();
 
@@ -182,11 +183,13 @@ mod tests {
     #[test]
     fn the_color_with_an_intersection_behind_the_ray() {
         let mut w = World::default_world();
-        w.objects[0].material.ambient = 1.0;
-        w.objects[1].material.ambient = 1.0;
+        let mut material = Material::new();
+        material.ambient = 1.0;
+        w.objects[0].set_material(material);
+        w.objects[1].set_material(material);
         let r = Ray::new(Tuple::point(0.0, 0.0, 0.75), Tuple::vector(0.0, 0.0, -1.0));
         let c = w.color_at(&r);
-        assert_eq!(c, w.objects[1].material.color);
+        assert_eq!(c, w.objects[1].material().color);
     }
 
     #[test]
@@ -227,7 +230,7 @@ mod tests {
         let s1 = Sphere::new();
         w.objects.push(s1);
         let mut s2 = Sphere::new();
-        s2.transform(translation(0.0, 0.0, 10.0));
+        s2.set_transform(translation(0.0, 0.0, 10.0));
         w.objects.push(s2);
 
         let r = Ray::new(Tuple::point(0.0, 0.0, 5.0), Tuple::vector(0.0, 0.0, 1.0));

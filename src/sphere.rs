@@ -2,14 +2,13 @@ use crate::intersection::*;
 use crate::material::*;
 use crate::matrix::Matrix;
 use crate::ray::*;
-use crate::transformations::*;
+use crate::shape::Shape;
 use crate::tuple::Tuple;
-use crate::utils::*;
 
 #[derive(Debug, PartialEq)]
 pub struct Sphere {
     transform: Matrix<4>,
-    pub material: Material,
+    material: Material,
 }
 
 impl Sphere {
@@ -19,21 +18,30 @@ impl Sphere {
             material: Material::new(),
         }
     }
+}
 
-    // Returns intersection points (time) along `ray`.
-    pub fn intersect(&self, ray: &Ray) -> Intersections {
-        // We want the the sphere to always be centered at the world origin, so we move the ray by the inverse of the
-        // sphere transformation.
-        let ray = ray.transform(
-            self.transform
-                .inverse()
-                .expect("sphere transform should be invertible"),
-        );
+impl Shape for Sphere {
+    fn transform(&self) -> &Matrix<4> {
+        &self.transform
+    }
 
+    fn set_transform(&mut self, transform: Matrix<4>) {
+        self.transform = transform;
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+
+    fn set_material(&mut self, material: Material) {
+        self.material = material
+    }
+
+    fn local_intersect(&self, local_ray: &Ray) -> Intersections {
         // The sphere is always centered at the world origin...
-        let sphere_to_ray = ray.origin - Tuple::point(0., 0., 0.);
-        let a = ray.direction.dot(&ray.direction);
-        let b = 2. * ray.direction.dot(&sphere_to_ray);
+        let sphere_to_ray = local_ray.origin - Tuple::point(0., 0., 0.);
+        let a = local_ray.direction.dot(&local_ray.direction);
+        let b = 2. * local_ray.direction.dot(&sphere_to_ray);
         let c = sphere_to_ray.dot(&sphere_to_ray) - 1.;
 
         // Classic quadratic formula!
@@ -50,23 +58,8 @@ impl Sphere {
         result
     }
 
-    pub fn transform(&mut self, matrix: Matrix<4>) {
-        self.transform = self.transform * matrix;
-    }
-
-    pub fn normal_at(&self, world_point: Tuple) -> Tuple {
-        let sphere_inverted_transform = self
-            .transform
-            .inverse()
-            .expect("Transform should be invertible");
-        let object_point = sphere_inverted_transform * world_point;
-
-        let object_normal = object_point - Tuple::point(0., 0., 0.);
-        let mut world_normal = sphere_inverted_transform.transpose() * object_normal;
-        // Hack: Instead of removing any translation by taking a 3x3 submatrix of the transform, we just set w to 0.
-        world_normal.w = 0.;
-
-        world_normal.normalize()
+    fn local_normal_at(&self, local_point: &Tuple) -> Tuple {
+        *local_point - Tuple::point(0., 0., 0.)
     }
 }
 
@@ -76,6 +69,8 @@ mod tests {
 
     use super::*;
     use crate::assert_almost_eq;
+    use crate::transformations::*;
+    use crate::utils::*;
 
     #[test]
     fn a_ray_intersects_a_sphere_at_two_points() {
@@ -156,7 +151,7 @@ mod tests {
     fn changing_a_sphere_s_transformations() {
         let mut s = Sphere::new();
         let t = translation(2., 3., 4.);
-        s.transform(t);
+        s.set_transform(t);
 
         assert_eq!(s.transform, t)
     }
@@ -166,7 +161,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let mut s = Sphere::new();
 
-        s.transform(scaling(2., 2., 2.));
+        s.set_transform(scaling(2., 2., 2.));
         let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 2);
@@ -179,7 +174,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let mut s = Sphere::new();
 
-        s.transform(translation(5., 0., 0.));
+        s.set_transform(translation(5., 0., 0.));
         let xs = s.intersect(&r);
 
         assert_eq!(xs.len(), 0);
@@ -187,28 +182,28 @@ mod tests {
     #[test]
     fn the_normal_on_a_sphere_at_a_point_on_the_x_axis() {
         let s = Sphere::new();
-        let n = s.normal_at(Tuple::point(1., 0., 0.));
+        let n = s.normal_at(&Tuple::point(1., 0., 0.));
         assert_eq!(n, Tuple::vector(1., 0., 0.));
     }
 
     #[test]
     fn the_normal_on_a_sphere_at_a_point_on_the_y_axis() {
         let s = Sphere::new();
-        let n = s.normal_at(Tuple::point(0., 1., 0.));
+        let n = s.normal_at(&Tuple::point(0., 1., 0.));
         assert_eq!(n, Tuple::vector(0., 1., 0.));
     }
 
     #[test]
     fn the_normal_on_a_sphere_at_a_point_on_the_z_axis() {
         let s = Sphere::new();
-        let n = s.normal_at(Tuple::point(0., 0., 1.));
+        let n = s.normal_at(&Tuple::point(0., 0., 1.));
         assert_eq!(n, Tuple::vector(0., 0., 1.));
     }
 
     #[test]
     fn the_normal_on_a_sphere_at_a_nonaxial_point() {
         let s = Sphere::new();
-        let n = s.normal_at(Tuple::point(
+        let n = s.normal_at(&Tuple::point(
             (3. as f64).sqrt() / 3.,
             (3. as f64).sqrt() / 3.,
             (3. as f64).sqrt() / 3.,
@@ -226,7 +221,7 @@ mod tests {
     #[test]
     fn the_normal_is_a_normalized_vector() {
         let s = Sphere::new();
-        let n = s.normal_at(Tuple::point(
+        let n = s.normal_at(&Tuple::point(
             (3. as f64).sqrt() / 3.,
             (3. as f64).sqrt() / 3.,
             (3. as f64).sqrt() / 3.,
@@ -237,9 +232,9 @@ mod tests {
     #[test]
     fn computing_the_normal_on_a_translated_sphere() {
         let mut s = Sphere::new();
-        s.transform(translation(0., 1., 0.));
+        s.set_transform(translation(0., 1., 0.));
 
-        let n = s.normal_at(Tuple::point(0., 1.70711, -0.70711));
+        let n = s.normal_at(&Tuple::point(0., 1.70711, -0.70711));
         assert_eq!(n, Tuple::vector(0., 0.70711, -0.70711));
     }
 
@@ -247,8 +242,8 @@ mod tests {
     fn computing_the_normal_on_a_transformed_sphere() {
         let mut s = Sphere::new();
         let m = scaling(1., 0.5, 1.) * rotation_z(PI / 5.);
-        s.transform(m);
-        let n = s.normal_at(Tuple::point(
+        s.set_transform(m);
+        let n = s.normal_at(&Tuple::point(
             0.,
             (2 as f64).sqrt() / 2.,
             -(2 as f64).sqrt() / 2.,
