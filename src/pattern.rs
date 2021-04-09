@@ -5,6 +5,7 @@ enum PatternKind {
     Stripe(Color, Color),
     Gradient(Color, Color),
     Ring(Color, Color), // Like a target...
+    Checkers(Color, Color),
 
     //  Yikes, test induced damage :(.
     Test,
@@ -38,6 +39,13 @@ impl Pattern {
         }
     }
 
+    pub fn checkers(a: Color, b: Color) -> Self {
+        Self {
+            transform: Matrix::<4>::identity(),
+            kind: PatternKind::Checkers(a, b),
+        }
+    }
+
     fn color_at(&self, point: &Tuple) -> Color {
         match self.kind {
             PatternKind::Stripe(a, b) => {
@@ -50,6 +58,14 @@ impl Pattern {
             PatternKind::Gradient(from, to) => from + (to - from) * (point.x - point.x.floor()),
             PatternKind::Ring(a, b) => {
                 if (point.x.powf(2.0) + point.z.powf(2.0)).sqrt().floor() % 2.0 == 0.0 {
+                    a
+                } else {
+                    b
+                }
+            }
+            PatternKind::Checkers(a, b) => {
+                // TODO: UV mapping, to apply a two-dimensional texture to the surface of an object.
+                if point.x.floor() + point.y.floor() + point.z.floor() % 2.0 == 0.0 {
                     a
                 } else {
                     b
@@ -231,21 +247,26 @@ mod tests {
         assert_eq!(pattern.color_at(&Tuple::point(0.708, 0.0, 0.708)), BLACK);
     }
 
-    // Scenario: Checkers should repeat in x
-    //   Given pattern â† checkers_pattern(white, black)
-    //   Then pattern_at(pattern, point(0.0, 0.0, 0.0)) = white
-    //     And pattern_at(pattern, point(0.99, 0.0, 0.0)) = white
-    //     And pattern_at(pattern, point(1.01, 0.0, 0.0)) = black
+    #[test]
+    fn checkers_should_repeat_in_x() {
+        let pattern = Pattern::checkers(WHITE, BLACK);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.99, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(1.01, 0.0, 0.0)), BLACK);
+    }
 
-    // Scenario: Checkers should repeat in y
-    //   Given pattern â† checkers_pattern(white, black)
-    //   Then pattern_at(pattern, point(0.0, 0.0, 0.0)) = white
-    //     And pattern_at(pattern, point(0.0, 0.99, 0.0)) = white
-    //     And pattern_at(pattern, point(0.0, 1.01, 0.0)) = black
-
-    // Scenario: Checkers should repeat in z
-    //   Given pattern â† checkers_pattern(white, black)
-    //   Then pattern_at(pattern, point(0.0, 0.0, 0.0)) = white
-    //     And pattern_at(pattern, point(0.0, 0.0, 0.99)) = white
-    // And pattern_at(pattern, point(0.0, 0.0, 1.01)) = black
+    #[test]
+    fn checkers_should_repeat_in_y() {
+        let pattern = Pattern::checkers(WHITE, BLACK);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.99, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 1.01, 0.0)), BLACK);
+    }
+    #[test]
+    fn checkers_should_repeat_in_z() {
+        let pattern = Pattern::checkers(WHITE, BLACK);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 0.99)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 1.01)), BLACK);
+    }
 }
