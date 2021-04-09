@@ -1,6 +1,7 @@
 use crate::utils::*;
 
 use std::ops;
+// TODO: Rename to something that makes more sense, Vector4 maybe?
 #[derive(Debug, Copy, Clone)]
 pub struct Tuple {
     pub x: f64,

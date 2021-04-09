@@ -23,6 +23,7 @@ impl Canvas {
         self.pixels[x + y * self.width] = color;
     }
 
+    // TODO: make a version of this that outputs directly to a file.
     pub fn to_ppm(&self) -> String {
         let mut result = String::from("P3\n"); // Version/Flavor of PPM
         result.push_str(&format!("{} {}\n", self.width, self.height));

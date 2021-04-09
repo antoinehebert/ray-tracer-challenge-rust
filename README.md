@@ -15,5 +15,3 @@ Learning Rust by implementing a basic ray tracer, following the book [The Ray Tr
 
 # TODOs
 - Optimize! This is slooooooow.
-- Save to file directly instead of outputting a String.
-- Rename Tuple to Vector4 or something that makes more sense to me.
