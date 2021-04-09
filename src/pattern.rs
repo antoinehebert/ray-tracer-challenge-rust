@@ -4,6 +4,7 @@ use crate::{color::*, matrix::Matrix, shape::Shape, tuple::Tuple};
 enum PatternKind {
     Stripe(Color, Color),
     Gradient(Color, Color),
+    Ring(Color, Color), // Like a target...
 
     //  Yikes, test induced damage :(.
     Test,
@@ -30,6 +31,13 @@ impl Pattern {
         }
     }
 
+    pub fn ring(a: Color, b: Color) -> Self {
+        Self {
+            transform: Matrix::<4>::identity(),
+            kind: PatternKind::Ring(a, b),
+        }
+    }
+
     fn color_at(&self, point: &Tuple) -> Color {
         match self.kind {
             PatternKind::Stripe(a, b) => {
@@ -40,6 +48,13 @@ impl Pattern {
                 }
             }
             PatternKind::Gradient(from, to) => from + (to - from) * (point.x - point.x.floor()),
+            PatternKind::Ring(a, b) => {
+                if (point.x.powf(2.0) + point.z.powf(2.0)).sqrt().floor() % 2.0 == 0.0 {
+                    a
+                } else {
+                    b
+                }
+            }
             // Used to test that we're properly transforming world coordinates into local ones.
             PatternKind::Test => Color::new(point.x, point.y, point.z),
         }
@@ -205,13 +220,16 @@ mod tests {
         );
     }
 
-    // Scenario: A ring should extend in both x and z
-    //   Given pattern â† ring_pattern(white, black)
-    //   Then pattern_at(pattern, point(0.0, 0.0, 0.0)) = white
-    //     And pattern_at(pattern, point(1.0, 0.0, 0.0)) = black
-    //     And pattern_at(pattern, point(0.0, 0.0, 1.0)) = black
-    //     # 0.708 = just slightly more than âˆš2/2.0
-    //     And pattern_at(pattern, point(0.708, 0.0, 0.708)) = black
+    #[test]
+    fn a_ring_should_extend_in_both_x_and_z() {
+        let pattern = Pattern::ring(WHITE, BLACK);
+
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(1.0, 0.0, 0.0)), BLACK);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 1.0)), BLACK);
+        // 0.708 = just slightly more than √2/2.0
+        assert_eq!(pattern.color_at(&Tuple::point(0.708, 0.0, 0.708)), BLACK);
+    }
 
     // Scenario: Checkers should repeat in x
     //   Given pattern â† checkers_pattern(white, black)
