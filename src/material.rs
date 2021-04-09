@@ -1,4 +1,4 @@
-use crate::{color::*, light::Light, pattern::Stripe, shape::Shape, tuple::Tuple};
+use crate::{color::*, light::Light, pattern::Pattern, shape::Shape, tuple::Tuple};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Material {
@@ -7,7 +7,7 @@ pub struct Material {
     pub diffuse: f64,
     pub specular: f64,
     pub shininess: f64,
-    pub pattern: Option<Stripe>,
+    pub pattern: Option<Pattern>,
 }
 
 impl Material {
@@ -34,7 +34,7 @@ impl Material {
     ) -> Color {
         // Combine the surface color with the light's color/intensity.
         let color = if let Some(pattern) = &self.pattern {
-            pattern.stripe_at_object(object, point)
+            pattern.color_at_shape(object, point)
         } else {
             self.color
         };
@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn lighting_with_a_pattern_applied() {
         let mut m = Material::new();
-        m.pattern = Some(Stripe::new(WHITE, BLACK));
+        m.pattern = Some(Pattern::stripe(WHITE, BLACK));
         m.ambient = 1.0;
         m.diffuse = 0.0;
         m.specular = 0.0;

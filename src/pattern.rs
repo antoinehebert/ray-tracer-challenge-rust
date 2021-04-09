@@ -1,94 +1,119 @@
 use crate::{color::*, matrix::Matrix, shape::Shape, tuple::Tuple};
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Stripe {
-    a: Color,
-    b: Color,
-    transform: Matrix<4>,
+#[derive(Debug, PartialEq, Copy, Clone)]
+enum PatternKind {
+    Stripe(Color, Color),
+    Test, //  Yikes, test induced damage :(.
 }
 
-impl Stripe {
-    pub fn new(a: Color, b: Color) -> Self {
+#[derive(Debug, PartialEq, Clone)]
+pub struct Pattern {
+    transform: Matrix<4>,
+    kind: PatternKind,
+}
+
+impl Pattern {
+    pub fn stripe(a: Color, b: Color) -> Self {
         Self {
-            a,
-            b,
             transform: Matrix::<4>::identity(),
+            kind: PatternKind::Stripe(a, b),
         }
     }
 
-    pub fn stripe_at(&self, point: &Tuple) -> Color {
-        if point.x.floor() % 2.0 == 0.0 {
-            self.a
-        } else {
-            self.b
+    fn color_at(&self, point: &Tuple) -> Color {
+        match self.kind {
+            PatternKind::Stripe(a, b) => {
+                if point.x.floor() % 2.0 == 0.0 {
+                    a
+                } else {
+                    b
+                }
+            }
+            // Used to test that we're properly transforming world coordinates into local ones.
+            PatternKind::Test => Color::new(point.x, point.y, point.z),
         }
     }
 
-    pub fn stripe_at_object(&self, object: &Shape, world_point: &Tuple) -> Color {
+    // TODO: move on Shape?
+    pub fn color_at_shape(&self, object: &Shape, world_point: &Tuple) -> Color {
         let object_point = object.transform.inverse().expect("should be invertible") * *world_point;
         let pattern_point = self.transform.inverse().expect("should be invertible") * object_point;
 
-        self.stripe_at(&pattern_point)
+        self.color_at(&pattern_point)
     }
 }
 
+// Note: Some of these tests are assuming we're using some form of an abstract class... We're using a mix of struc
+// and enum here so it doesn't really fit this idiom really well...
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::transformations::*;
 
+    fn test_pattern() -> Pattern {
+        Pattern {
+            transform: Matrix::<4>::identity(),
+            kind: PatternKind::Test,
+        }
+    }
+
     #[test]
     fn creating_a_stripe_pattern() {
-        let pattern = Stripe::new(WHITE, BLACK);
-        assert_eq!(pattern.a, WHITE);
-        assert_eq!(pattern.b, BLACK);
+        let pattern = Pattern::stripe(WHITE, BLACK);
+
+        if let PatternKind::Stripe(a, b) = pattern.kind {
+            assert_eq!(a, WHITE);
+            assert_eq!(b, BLACK);
+        } else {
+            assert!(false); // You should not be here!
+        }
     }
 
     #[test]
     fn a_stripe_pattern_is_constant_in_y() {
-        let pattern = Stripe::new(WHITE, BLACK);
+        let pattern = Pattern::stripe(WHITE, BLACK);
 
-        assert_eq!(pattern.stripe_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
-        assert_eq!(pattern.stripe_at(&Tuple::point(0.0, 1.0, 0.0)), WHITE);
-        assert_eq!(pattern.stripe_at(&Tuple::point(0.0, 2.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 1.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 2.0, 0.0)), WHITE);
     }
 
     #[test]
     fn a_stripe_pattern_is_constant_in_z() {
-        let pattern = Stripe::new(WHITE, BLACK);
+        let pattern = Pattern::stripe(WHITE, BLACK);
 
-        assert_eq!(pattern.stripe_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
-        assert_eq!(pattern.stripe_at(&Tuple::point(0.0, 0.0, 1.0)), WHITE);
-        assert_eq!(pattern.stripe_at(&Tuple::point(0.0, 0.0, 2.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 1.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 2.0)), WHITE);
     }
 
     #[test]
     fn a_stripe_pattern_alternates_in_x() {
-        let pattern = Stripe::new(WHITE, BLACK);
+        let pattern = Pattern::stripe(WHITE, BLACK);
 
-        assert_eq!(pattern.stripe_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
-        assert_eq!(pattern.stripe_at(&Tuple::point(0.9, 0.0, 0.0)), WHITE);
-        assert_eq!(pattern.stripe_at(&Tuple::point(1.0, 0.0, 0.0)), BLACK);
-        assert_eq!(pattern.stripe_at(&Tuple::point(-0.1, 0.0, 0.0)), BLACK);
-        assert_eq!(pattern.stripe_at(&Tuple::point(-1.0, 0.0, 0.0)), BLACK);
-        assert_eq!(pattern.stripe_at(&Tuple::point(-1.1, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(0.9, 0.0, 0.0)), WHITE);
+        assert_eq!(pattern.color_at(&Tuple::point(1.0, 0.0, 0.0)), BLACK);
+        assert_eq!(pattern.color_at(&Tuple::point(-0.1, 0.0, 0.0)), BLACK);
+        assert_eq!(pattern.color_at(&Tuple::point(-1.0, 0.0, 0.0)), BLACK);
+        assert_eq!(pattern.color_at(&Tuple::point(-1.1, 0.0, 0.0)), WHITE);
     }
 
     #[test]
     fn stripes_with_an_object_transformation() {
         let mut object = Shape::sphere();
         object.transform = scaling(2.0, 2.0, 2.0);
-        let pattern = Stripe::new(WHITE, BLACK);
-        let c = pattern.stripe_at_object(&object, &Tuple::point(1.5, 0.0, 0.0));
+        let pattern = Pattern::stripe(WHITE, BLACK);
+        let c = pattern.color_at_shape(&object, &Tuple::point(1.5, 0.0, 0.0));
         assert_eq!(c, WHITE);
     }
 
     #[test]
     fn stripes_with_a_pattern_transformation() {
         let object = Shape::sphere();
-        let mut pattern = Stripe::new(WHITE, BLACK);
+        let mut pattern = Pattern::stripe(WHITE, BLACK);
         pattern.transform = scaling(2.0, 2.0, 2.0);
-        let c = pattern.stripe_at_object(&object, &Tuple::point(1.5, 0.0, 0.0));
+        let c = pattern.color_at_shape(&object, &Tuple::point(1.5, 0.0, 0.0));
         assert_eq!(c, WHITE);
     }
 
@@ -96,42 +121,59 @@ mod tests {
     fn stripes_with_both_an_object_and_a_pattern_transformation() {
         let mut object = Shape::sphere();
         object.transform = scaling(2.0, 2.0, 2.0);
-        let mut pattern = Stripe::new(WHITE, BLACK);
+        let mut pattern = Pattern::stripe(WHITE, BLACK);
         pattern.transform = translation(0.5, 0.0, 0.0);
-        let c = pattern.stripe_at_object(&object, &Tuple::point(2.5, 0.0, 0.0));
+        let c = pattern.color_at_shape(&object, &Tuple::point(2.5, 0.0, 0.0));
         assert_eq!(c, WHITE);
     }
 
-    // Scenario: The default pattern transformation
-    //   Given pattern â† test_pattern()
-    //   Then pattern.transform = identity_matrix
+    #[test]
+    fn the_default_pattern_transformation() {
+        let pattern = Pattern::stripe(WHITE, BLACK);
+        assert_eq!(pattern.transform, Matrix::<4>::identity());
+    }
 
-    // Scenario: Assigning a transformation
-    //   Given pattern â† test_pattern()
-    //   When set_pattern_transform(pattern, translation(1.0, 2.0, 3.0))
-    //   Then pattern.transform = translation(1.0, 2.0, 3.0)
+    #[test]
+    fn assigning_a_transformation() {
+        let mut pattern = test_pattern();
+        pattern.transform = translation(1.0, 2.0, 3.0);
 
-    // Scenario: A pattern with an object transformation
-    //   Given shape â† sphere()
-    //     And set_transform(shape, scaling(2.0, 2.0, 2.0))
-    //     And pattern â† test_pattern()
-    //   When c â† pattern_at_shape(pattern, shape, point(2.0, 3.0, 4.0))
-    //   Then c = color(1.0, 1.5, 2.0)
+        assert_eq!(pattern.transform, translation(1.0, 2.0, 3.0));
+    }
 
-    // Scenario: A pattern with a pattern transformation
-    //   Given shape â† sphere()
-    //     And pattern â† test_pattern()
-    //     And set_pattern_transform(pattern, scaling(2.0, 2.0, 2.0))
-    //   When c â† pattern_at_shape(pattern, shape, point(2.0, 3.0, 4.0))
-    //   Then c = color(1.0, 1.5, 2.0)
+    #[test]
+    fn a_pattern_with_an_object_transformation() {
+        let mut shape = Shape::sphere();
+        shape.transform = scaling(2.0, 2.0, 2.0);
+        let pattern = test_pattern();
 
-    // Scenario: A pattern with both an object and a pattern transformation
-    //   Given shape â† sphere()
-    //     And set_transform(shape, scaling(2.0, 2.0, 2.0))
-    //     And pattern â† test_pattern()
-    //     And set_pattern_transform(pattern, translation(0.5, 1.0, 1.5))
-    //   When c â† pattern_at_shape(pattern, shape, point(2.5, 3.0, 3.5))
-    //   Then c = color(0.75, 0.5, 0.25)
+        let c = pattern.color_at_shape(&shape, &Tuple::point(2.0, 3.0, 4.0));
+
+        assert_eq!(c, Color::new(1.0, 1.5, 2.0));
+    }
+
+    #[test]
+    fn a_pattern_with_a_pattern_transformation() {
+        let shape = Shape::sphere();
+        let mut pattern = test_pattern();
+        pattern.transform = scaling(2.0, 2.0, 2.0);
+
+        let c = pattern.color_at_shape(&shape, &Tuple::point(2.0, 3.0, 4.0));
+
+        assert_eq!(c, Color::new(1.0, 1.5, 2.0));
+    }
+
+    #[test]
+    fn a_pattern_with_both_an_object_and_a_pattern_transformation() {
+        let mut shape = Shape::sphere();
+        shape.transform = scaling(2.0, 2.0, 2.0);
+        let mut pattern = test_pattern();
+        pattern.transform = translation(0.5, 1.0, 1.5);
+
+        let c = pattern.color_at_shape(&shape, &Tuple::point(2.5, 3.0, 3.5));
+
+        assert_eq!(c, Color::new(0.75, 0.5, 0.25));
+    }
 
     // Scenario: A gradient linearly interpolates between colors
     //   Given pattern â† gradient_pattern(white, black)
