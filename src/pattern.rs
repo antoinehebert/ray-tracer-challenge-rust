@@ -3,7 +3,10 @@ use crate::{color::*, matrix::Matrix, shape::Shape, tuple::Tuple};
 #[derive(Debug, PartialEq, Copy, Clone)]
 enum PatternKind {
     Stripe(Color, Color),
-    Test, //  Yikes, test induced damage :(.
+    Gradient(Color, Color),
+
+    //  Yikes, test induced damage :(.
+    Test,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -20,6 +23,13 @@ impl Pattern {
         }
     }
 
+    pub fn gradient(from: Color, to: Color) -> Self {
+        Self {
+            transform: Matrix::<4>::identity(),
+            kind: PatternKind::Gradient(from, to),
+        }
+    }
+
     fn color_at(&self, point: &Tuple) -> Color {
         match self.kind {
             PatternKind::Stripe(a, b) => {
@@ -29,6 +39,7 @@ impl Pattern {
                     b
                 }
             }
+            PatternKind::Gradient(from, to) => from + (to - from) * (point.x - point.x.floor()),
             // Used to test that we're properly transforming world coordinates into local ones.
             PatternKind::Test => Color::new(point.x, point.y, point.z),
         }
@@ -175,12 +186,24 @@ mod tests {
         assert_eq!(c, Color::new(0.75, 0.5, 0.25));
     }
 
-    // Scenario: A gradient linearly interpolates between colors
-    //   Given pattern â† gradient_pattern(white, black)
-    //   Then pattern_at(pattern, point(0.0, 0.0, 0.0)) = white
-    //     And pattern_at(pattern, point(0.25, 0.0, 0.0)) = color(0.75, 0.75, 0.75)
-    //     And pattern_at(pattern, point(0.5, 0.0, 0.0)) = color(0.5, 0.5, 0.5)
-    //     And pattern_at(pattern, point(0.75, 0.0, 0.0)) = color(0.25, 0.25, 0.25)
+    #[test]
+    fn a_gradient_linearly_interpolates_between_colors() {
+        let pattern = Pattern::gradient(WHITE, BLACK);
+
+        assert_eq!(pattern.color_at(&Tuple::point(0.0, 0.0, 0.0)), WHITE);
+        assert_eq!(
+            pattern.color_at(&Tuple::point(0.25, 0.0, 0.0)),
+            Color::new(0.75, 0.75, 0.75)
+        );
+        assert_eq!(
+            pattern.color_at(&Tuple::point(0.5, 0.0, 0.0)),
+            Color::new(0.5, 0.5, 0.5)
+        );
+        assert_eq!(
+            pattern.color_at(&Tuple::point(0.75, 0.0, 0.0)),
+            Color::new(0.25, 0.25, 0.25)
+        );
+    }
 
     // Scenario: A ring should extend in both x and z
     //   Given pattern â† ring_pattern(white, black)
