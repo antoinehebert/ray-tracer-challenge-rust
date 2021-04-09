@@ -133,7 +133,7 @@ mod tests {
         let mut s = Shape::sphere();
         let mut m = Material::new();
         m.ambient = 1.0;
-        s.material = m;
+        s.material = m.clone();
         assert_eq!(s.material, m);
     }
 
@@ -330,7 +330,7 @@ mod tests {
         let mut s = Shape::sphere();
         let mut m = Material::new();
         m.ambient = 1.234;
-        s.material = m;
+        s.material = m.clone();
         assert_eq!(s.material, m);
     }
 

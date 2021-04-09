@@ -1,14 +1,16 @@
 use crate::color::*;
 use crate::light::*;
+use crate::pattern::*;
 use crate::tuple::*;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Material {
     pub color: Color,
     pub ambient: f64,
     pub diffuse: f64,
     pub specular: f64,
     pub shininess: f64,
+    pub pattern: Option<Stripe>,
 }
 
 impl Material {
@@ -19,6 +21,7 @@ impl Material {
             diffuse: 0.9,
             specular: 0.9,
             shininess: 200.0,
+            pattern: None,
         }
     }
 
@@ -31,7 +34,13 @@ impl Material {
         in_shadow: bool,
     ) -> Color {
         // Combine the surface color with the light's color/intensity.
-        let effective_color = self.color * light.intensity;
+        let color = if let Some(pattern) = &self.pattern {
+            pattern.stripe_at(point)
+        } else {
+            self.color
+        };
+
+        let effective_color = color * light.intensity;
 
         // Direction to the light source.
         let lightv = (light.position - *point).normalize();
@@ -153,16 +162,20 @@ mod tests {
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
     }
 
-    // Scenario: Lighting with a pattern applied
-    //   Given m.pattern â† stripe_pattern(color(1., 1., 1.), color(0., 0., 0.))
-    //     And m.ambient â† 1.
-    //     And m.diffuse â† 0.
-    //     And m.specular â† 0.
-    //     And eyev â† vector(0., 0., -1.)
-    //     And normalv â† vector(0., 0., -1.)
-    //     And light â† point_light(point(0., 0., -10.), color(1., 1., 1.))
-    //   When c1 â† lighting(m, light, point(0.9, 0., 0.), eyev, normalv, false)
-    //     And c2 â† lighting(m, light, point(1.1, 0., 0.), eyev, normalv, false)
-    //   Then c1 = color(1., 1., 1.)
-    //     And c2 = color(0., 0., 0.)
+    #[test]
+    fn lighting_with_a_pattern_applied() {
+        let mut m = Material::new();
+        m.pattern = Some(Stripe::new(WHITE, BLACK));
+        m.ambient = 1.0;
+        m.diffuse = 0.0;
+        m.specular = 0.0;
+        let eyev = Tuple::vector(0., 0., -1.);
+        let normalv = Tuple::vector(0., 0., -1.);
+        let light = Light::new(Tuple::point(0., 0., -10.), WHITE);
+
+        let c1 = m.lighting(&light, &Tuple::point(0.9, 0., 0.), &eyev, &normalv, false);
+        let c2 = m.lighting(&light, &Tuple::point(1.1, 0., 0.), &eyev, &normalv, false);
+        assert_eq!(c1, Color::new(1.0, 1.0, 1.0));
+        assert_eq!(c2, Color::new(0.0, 0.0, 0.0));
+    }
 }
