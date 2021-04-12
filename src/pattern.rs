@@ -13,7 +13,7 @@ enum PatternKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Pattern {
-    transform: Matrix<4>,
+    pub transform: Matrix<4>,
     kind: PatternKind,
 }
 
@@ -64,8 +64,7 @@ impl Pattern {
                 }
             }
             PatternKind::Checkers(a, b) => {
-                // TODO: UV mapping, to apply a two-dimensional texture to the surface of an object.
-                if point.x.floor() + point.y.floor() + point.z.floor() % 2.0 == 0.0 {
+                if (point.x.floor() + point.y.floor() + point.z.floor()) % 2.0 == 0.0 {
                     a
                 } else {
                     b
