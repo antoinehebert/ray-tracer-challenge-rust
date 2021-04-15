@@ -7,13 +7,17 @@ Learning Rust by implementing a basic ray tracer, following the book [The Ray Tr
 
 # Running tests
 
-    cargo test
+```bash
+cargo test
+```
 
 # Running app
 
-The app expects a filename parameter.
+The app expects a `filename` parameter.
 
-    cargo run image.ppm && open !$
+```bash
+cargo run your_file_name.ppm
+```
 
 # TODOs
 - Optimize! This is slooooooow.
