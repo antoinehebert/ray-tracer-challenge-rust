@@ -11,7 +11,9 @@ Learning Rust by implementing a basic ray tracer, following the book [The Ray Tr
 
 # Running app
 
-    cargo run > putting_it_together.ppm && open putting_it_together.ppm
+The app expects a filename parameter.
+
+    cargo run image.ppm && open !$
 
 # TODOs
 - Optimize! This is slooooooow.

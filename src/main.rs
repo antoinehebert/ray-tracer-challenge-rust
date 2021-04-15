@@ -14,7 +14,9 @@ mod tuple;
 mod utils;
 mod world;
 
-use std::f64::consts::PI;
+use std::{env, f64::consts::PI};
+
+use std::fs::File;
 
 use camera::Camera;
 use color::*;
@@ -26,7 +28,14 @@ use tuple::Tuple;
 use world::World;
 
 fn main() {
-    chapter_10_patterns();
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() != 2 {
+        println!("Expected a filename argument");
+        return;
+    }
+
+    chapter_10_patterns(&args[1]);
 }
 
 const WIDTH: usize = 100;
@@ -35,7 +44,7 @@ const HEIGHT: usize = WIDTH / 2;
 //
 // Putting it together. Exercises at the end of chapters.
 //
-fn chapter_10_patterns() {
+fn chapter_10_patterns(filename: &str) {
     let mut floor = Shape::plane();
     let mut floor_pattern = Pattern::stripe(BLUE, WHITE);
     floor_pattern.transform = rotation_y(PI / 4.0);
@@ -83,5 +92,11 @@ fn chapter_10_patterns() {
     );
 
     let canvas = camera.render(&world);
-    println!("{}", canvas.to_ppm());
+
+    let file = File::create(filename);
+
+    match file {
+        Ok(mut file) => canvas.to_ppm(&mut file),
+        Err(msg) => println!("Can't open {}: {}", filename, msg),
+    }
 }

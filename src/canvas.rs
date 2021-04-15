@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use crate::color::*;
 
 pub struct Canvas {
@@ -24,10 +26,10 @@ impl Canvas {
     }
 
     // TODO: make a version of this that outputs directly to a file.
-    pub fn to_ppm(&self) -> String {
-        let mut result = String::from("P3\n"); // Version/Flavor of PPM
-        result.push_str(&format!("{} {}\n", self.width, self.height));
-        result.push_str("255\n"); // Max color value
+    pub fn to_ppm<T: Write>(&self, out: &mut T) {
+        writeln!(out, "P3").expect("not written!"); // Version/Flavor of PPM
+        writeln!(out, "{} {}", self.width, self.height).expect("not written!");
+        writeln!(out, "255").expect("not written!"); // Max color value
 
         for y in 0..self.height {
             let mut len = 0;
@@ -41,21 +43,19 @@ impl Canvas {
                 ];
                 for color_str in color_strs {
                     if len + color_str.len() + 1 > 70 {
-                        result.push_str("\n");
+                        write!(out, "\n").expect("not written!");
                         len = 0;
                     }
                     if len > 0 {
-                        result.push_str(" ");
+                        write!(out, " ").expect("not written!");
                         len += 1;
                     }
-                    result.push_str(&color_str);
+                    write!(out, "{}", color_str).expect("not written!");
                     len += color_str.len();
                 }
             }
-            result.push_str("\n");
+            write!(out, "\n").expect("not written!");
         }
-
-        result
     }
 
     // Move to Color.
@@ -67,6 +67,10 @@ impl Canvas {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn ppm_to_strings(v: &Vec<u8>) -> Vec<&str> {
+        std::str::from_utf8(&v).unwrap().split("\n").collect()
+    }
 
     #[test]
     fn creating_a_canvas() {
@@ -94,9 +98,10 @@ mod tests {
     #[test]
     fn constructing_the_ppm_header() {
         let c = Canvas::new(5, 3);
-        let ppm = c.to_ppm();
+        let mut ppm = Vec::new();
+        c.to_ppm(&mut ppm);
 
-        let lines: Vec<_> = ppm.split("\n").collect();
+        let lines = ppm_to_strings(&ppm);
 
         assert_eq!(lines[0], "P3");
         assert_eq!(lines[1], "5 3");
@@ -114,9 +119,10 @@ mod tests {
         c.set_pixel(2, 1, c2);
         c.set_pixel(4, 2, c3);
 
-        let ppm = c.to_ppm();
+        let mut ppm = Vec::new();
+        c.to_ppm(&mut ppm);
 
-        let lines: Vec<_> = ppm.split("\n").collect();
+        let lines = ppm_to_strings(&ppm);
 
         assert_eq!(lines.len(), 7);
         assert_eq!(lines[3], "255 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
@@ -134,9 +140,10 @@ mod tests {
             }
         }
 
-        let ppm = c.to_ppm();
+        let mut ppm = Vec::new();
+        c.to_ppm(&mut ppm);
 
-        let lines: Vec<_> = ppm.split("\n").collect();
+        let lines = ppm_to_strings(&ppm);
 
         assert_eq!(lines.len(), 8);
         assert_eq!(
@@ -159,11 +166,11 @@ mod tests {
     #[test]
     fn ppm_files_are_terminated_by_a_newline_character() {
         let c = Canvas::new(5, 3);
-        let ppm = c.to_ppm();
+        let mut ppm = Vec::new();
+        c.to_ppm(&mut ppm);
 
-        assert_eq!(
-            ppm.chars().rev().nth(0).expect("ppm should not be empty"),
-            '\n'
-        );
+        let lines = ppm_to_strings(&ppm);
+
+        assert_eq!(*lines.last().unwrap(), "");
     }
 }

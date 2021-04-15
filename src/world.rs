@@ -2,7 +2,6 @@ use crate::{
     color::{Color, BLACK, WHITE},
     intersection::*,
     light::Light,
-    material::Material,
     ray::Ray,
     shape::Shape,
     transformations::scaling,
