@@ -8,6 +8,8 @@ use crate::{
     tuple::Tuple,
 };
 
+const RECURSION_LIMIT: usize = 5;
+
 pub struct World {
     pub objects: Vec<Shape>,
     pub light: Light,
@@ -51,24 +53,38 @@ impl World {
         result
     }
 
-    fn shade_hit(&self, comps: &Computations) -> Color {
-        comps.object.material.lighting(
+    fn shade_hit(&self, comps: &Computations, remaining: usize) -> Color {
+        let surface = comps.object.material.lighting(
             &self.light,
             &comps.object,
             &comps.point,
             &comps.eyev,
             &comps.normalv,
             self.is_shadowed(&comps.over_point),
-        )
+        );
+
+        let reflected = self.reflected_color(&comps, remaining - 1);
+
+        surface + reflected
     }
 
     pub fn color_at(&self, ray: &Ray) -> Color {
+        self.internal_color_at(&ray, RECURSION_LIMIT)
+    }
+
+    fn internal_color_at(&self, ray: &Ray, remaining: usize) -> Color {
+        if remaining < 1 {
+            return BLACK;
+        }
+
         let intersections = self.intersect(&ray);
         let xs = hit(&intersections);
 
         match xs {
             None => BLACK,
-            Some(intersection) => self.shade_hit(&intersection.prepare_computations(&ray)),
+            Some(intersection) => {
+                self.shade_hit(&intersection.prepare_computations(&ray), remaining - 1)
+            }
         }
     }
 
@@ -86,6 +102,20 @@ impl World {
             Some(hit) => hit.t < distance,
             None => false,
         }
+    }
+
+    fn reflected_color(&self, comps: &Computations, remaining: usize) -> Color {
+        if remaining < 1 {
+            return BLACK;
+        }
+        if comps.object.material.reflective == 0.0 {
+            return BLACK;
+        }
+
+        let reflect_ray = Ray::new(comps.over_point, comps.reflectv);
+        let color = self.internal_color_at(&reflect_ray, remaining - 1);
+
+        color * comps.object.material.reflective
     }
 }
 
@@ -141,7 +171,7 @@ mod tests {
         let shape = &w.objects[0];
         let i = Intersection::new(4.0, shape);
         let comps = i.prepare_computations(&r);
-        let c = w.shade_hit(&comps);
+        let c = w.shade_hit(&comps, RECURSION_LIMIT);
 
         assert_eq!(c, Color::new(0.38066, 0.47583, 0.2855));
     }
@@ -154,7 +184,7 @@ mod tests {
         let shape = &w.objects[1];
         let i = Intersection::new(0.5, shape);
         let comps = i.prepare_computations(&r);
-        let c = w.shade_hit(&comps);
+        let c = w.shade_hit(&comps, RECURSION_LIMIT);
 
         assert_eq!(c, Color::new(0.90498, 0.90498, 0.90498));
     }
@@ -229,70 +259,90 @@ mod tests {
         let r = Ray::new(Tuple::point(0.0, 0.0, 5.0), Tuple::vector(0.0, 0.0, 1.0));
         let i = Intersection::new(4.0, &w.objects[1]);
         let comps = i.prepare_computations(&r);
-        let c = w.shade_hit(&comps);
+        let c = w.shade_hit(&comps, RECURSION_LIMIT);
 
         assert_eq!(c, Color::new(0.1, 0.1, 0.1));
     }
 
-    // Scenario: The reflected color for a nonreflective material
-    //   Given w â† default_world()
-    //     And r â† ray(point(0, 0, 0), vector(0, 0, 1))
-    //     And shape â† the second object in w
-    //     And shape.material.ambient â† 1
-    //     And i â† intersection(1, shape)
-    //   When comps â† prepare_computations(i, r)
-    //     And color â† reflected_color(w, comps)
-    //   Then color = color(0, 0, 0)
+    #[test]
+    fn the_reflected_color_for_a_nonreflective_material() {
+        let mut w = World::default_world();
+        let r = Ray::new(Tuple::point(0.0, 0.0, 5.0), Tuple::vector(0.0, 0.0, 1.0));
+        w.objects[1].material.ambient = 1.0; // make sure we have something to reflect
+        let i = Intersection::new(1.0, &w.objects[1]);
+        let comps = i.prepare_computations(&r);
+        let color = w.reflected_color(&comps, RECURSION_LIMIT);
+        assert_eq!(color, BLACK);
+    }
 
-    // Scenario: The reflected color for a reflective material
-    //   Given w â† default_world()
-    //     And shape â† plane() with:
-    //       | material.reflective | 0.5                   |
-    //       | transform           | translation(0, -1, 0) |
-    //     And shape is added to w
-    //     And r â† ray(point(0, 0, -3), vector(0, -âˆš2/2, âˆš2/2))
-    //     And i â† intersection(âˆš2, shape)
-    //   When comps â† prepare_computations(i, r)
-    //     And color â† reflected_color(w, comps)
-    //   Then color = color(0.19032, 0.2379, 0.14274)
+    #[test]
+    fn the_reflected_color_for_a_reflective_material() {
+        let mut w = World::default_world();
+        let mut shape = Shape::plane();
+        shape.material.reflective = 0.5;
+        shape.transform = translation(0.0, -1.0, 0.0);
+        w.objects.push(shape.clone());
+        let r = Ray::new(
+            Tuple::point(0.0, 0.0, -3.0),
+            Tuple::vector(0.0, -(2 as f64).sqrt() / 2.0, (2 as f64).sqrt() / 2.0),
+        );
+        let i = Intersection::new((2 as f64).sqrt(), &shape);
+        let comps = i.prepare_computations(&r);
+        let color = w.reflected_color(&comps, RECURSION_LIMIT);
+        assert_eq!(color, Color::new(0.19033, 0.23791, 0.14274));
+    }
 
-    // Scenario: shade_hit() with a reflective material
-    //   Given w â† default_world()
-    //     And shape â† plane() with:
-    //       | material.reflective | 0.5                   |
-    //       | transform           | translation(0, -1, 0) |
-    //     And shape is added to w
-    //     And r â† ray(point(0, 0, -3), vector(0, -âˆš2/2, âˆš2/2))
-    //     And i â† intersection(âˆš2, shape)
-    //   When comps â† prepare_computations(i, r)
-    //     And color â† shade_hit(w, comps)
-    //   Then color = color(0.87677, 0.92436, 0.82918)
+    #[test]
+    fn shade_hit_with_a_reflective_material() {
+        let mut w = World::default_world();
+        let mut shape = Shape::plane();
+        shape.material.reflective = 0.5;
+        shape.transform = translation(0.0, -1.0, 0.0);
+        w.objects.push(shape.clone());
+        let r = Ray::new(
+            Tuple::point(0.0, 0.0, -3.0),
+            Tuple::vector(0.0, -(2 as f64).sqrt() / 2.0, (2 as f64).sqrt() / 2.0),
+        );
+        let i = Intersection::new((2 as f64).sqrt(), &shape);
+        let comps = i.prepare_computations(&r);
+        let color = w.shade_hit(&comps, RECURSION_LIMIT);
+        assert_eq!(color, Color::new(0.87675, 0.92434, 0.82918));
+    }
 
-    // Scenario: color_at() with mutually reflective surfaces
-    //   Given w â† world()
-    //     And w.light â† point_light(point(0, 0, 0), color(1, 1, 1))
-    //     And lower â† plane() with:
-    //       | material.reflective | 1                     |
-    //       | transform           | translation(0, -1, 0) |
-    //     And lower is added to w
-    //     And upper â† plane() with:
-    //       | material.reflective | 1                    |
-    //       | transform           | translation(0, 1, 0) |
-    //     And upper is added to w
-    //     And r â† ray(point(0, 0, 0), vector(0, 1, 0))
-    //   Then color_at(w, r) should terminate successfully
+    #[test]
+    fn color_at_with_mutually_reflective_surfaces() {
+        let mut w = World::new(Light::new(Tuple::point(0.0, 0.0, 0.0), WHITE));
 
-    // Scenario: The reflected color at the maximum recursive depth
-    //   Given w â† default_world()
-    //     And shape â† plane() with:
-    //       | material.reflective | 0.5                   |
-    //       | transform           | translation(0, -1, 0) |
-    //     And shape is added to w
-    //     And r â† ray(point(0, 0, -3), vector(0, -âˆš2/2, âˆš2/2))
-    //     And i â† intersection(âˆš2, shape)
-    //   When comps â† prepare_computations(i, r)
-    //     And color â† reflected_color(w, comps, 0)
-    //   Then color = color(0, 0, 0)
+        let mut lower = Shape::plane();
+        lower.material.reflective = 1.0;
+        lower.transform = translation(0.0, -1.0, 0.0);
+        w.objects.push(lower);
+
+        let mut upper = Shape::plane();
+        upper.material.reflective = 1.0;
+        upper.transform = translation(0.0, 1.0, 0.0);
+        w.objects.push(upper);
+
+        let r = Ray::new(Tuple::point(0.0, 0.0, 0.0), Tuple::vector(0.0, 1.0, 0.0));
+        let _color = w.color_at(&r);
+        assert!(true, "should terminate successfully");
+    }
+    #[test]
+    fn the_reflected_color_at_the_maximum_recursive_depth() {
+        let mut w = World::default_world();
+        let mut shape = Shape::plane();
+        shape.material.reflective = 0.5;
+        shape.transform = translation(0.0, -1.0, 0.0);
+        w.objects.push(shape.clone());
+        let r = Ray::new(
+            Tuple::point(0.0, 0.0, -3.0),
+            Tuple::vector(0.0, -(2 as f64).sqrt() / 2.0, (2 as f64).sqrt() / 2.0),
+        );
+        let i = Intersection::new((2 as f64).sqrt(), &shape);
+        let comps = i.prepare_computations(&r);
+        let color = w.reflected_color(&comps, 0);
+        assert_eq!(color, BLACK);
+    }
 
     // Scenario: The refracted color with an opaque surface
     //   Given w â† default_world()

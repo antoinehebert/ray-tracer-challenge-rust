@@ -24,6 +24,8 @@ impl<'a> Intersection<'a> {
             normalv = -normalv;
         }
 
+        let reflectv = ray.direction.reflect(&normalv);
+
         Computations {
             t: self.t,
             object: self.object,
@@ -32,6 +34,7 @@ impl<'a> Intersection<'a> {
             eyev,
             inside,
             normalv,
+            reflectv,
         }
     }
 }
@@ -46,6 +49,7 @@ pub struct Computations<'a> {
     pub eyev: Tuple,
     pub inside: bool,
     pub normalv: Tuple,
+    pub reflectv: Tuple,
 }
 
 // TODO: make this a method on Intersections.
@@ -140,13 +144,20 @@ mod tests {
         assert_eq!(comps.normalv, Tuple::vector(0.0, 0.0, -1.0));
     }
 
-    // Scenario: Precomputing the reflection vector
-    //   Given shape â† plane()
-    //     And r â† ray(point(0, 1, -1), vector(0, -âˆš2/2, âˆš2/2))
-    //     And i â† intersection(âˆš2, shape)
-    //   When comps â† prepare_computations(i, r)
-    //   Then comps.reflectv = vector(0, âˆš2/2, âˆš2/2)
-
+    #[test]
+    fn precomputing_the_reflection_vector() {
+        let shape = Shape::plane();
+        let r = Ray::new(
+            Tuple::point(0.0, 1.0, -1.0),
+            Tuple::vector(0.0, -(2.0 as f64).sqrt() / 2.0, (2.0 as f64).sqrt() / 2.0),
+        );
+        let i = Intersection::new((2 as f64).sqrt(), &shape);
+        let comps = i.prepare_computations(&r);
+        assert_eq!(
+            comps.reflectv,
+            Tuple::vector(0.0, (2.0 as f64).sqrt() / 2.0, (2.0 as f64).sqrt() / 2.0)
+        );
+    }
     #[test]
     fn the_hit_when_an_intersection_occurs_on_the_outside() {
         let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));

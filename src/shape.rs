@@ -7,13 +7,13 @@ use crate::{
     utils::EPSILON,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum ShapeKind {
     Sphere, // The sphere is always centered at the world origin...
     Plane,  // Plane is in xy, with the normal pointing in the positive y direction.
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Shape {
     pub transform: Matrix<4>,
     pub material: Material,

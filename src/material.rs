@@ -7,6 +7,7 @@ pub struct Material {
     pub diffuse: f64,
     pub specular: f64,
     pub shininess: f64,
+    pub reflective: f64,
     pub pattern: Option<Pattern>,
 }
 
@@ -18,6 +19,7 @@ impl Material {
             diffuse: 0.9,
             specular: 0.9,
             shininess: 200.0,
+            reflective: 0.0,
             pattern: None,
         }
     }
@@ -84,9 +86,11 @@ mod tests {
         assert_eq!(m.shininess, 200.0);
     }
 
-    // Scenario: Reflectivity for the default material
-    //   Given m â† material()
-    //   Then m.reflective = 0.0
+    #[test]
+    fn reflectivity_for_the_default_material() {
+        let m = Material::new();
+        assert_eq!(m.reflective, 0.0);
+    }
 
     // Scenario: Transparency and Refractive Index for the default material
     //   Given m â† material()
