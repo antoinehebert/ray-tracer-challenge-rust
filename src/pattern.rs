@@ -7,7 +7,7 @@ enum PatternKind {
     Ring(Color, Color), // Like a target...
     Checkers(Color, Color),
 
-    //  Yikes, test induced damage :(.
+    // TODO: Yikes, test induced damage :(.
     Test,
 }
 
@@ -43,6 +43,14 @@ impl Pattern {
         Self {
             transform: Matrix::<4>::identity(),
             kind: PatternKind::Checkers(a, b),
+        }
+    }
+
+    // TODO: Yikes! Test induced damage.
+    pub fn test_pattern() -> Pattern {
+        Pattern {
+            transform: Matrix::<4>::identity(),
+            kind: PatternKind::Test,
         }
     }
 
@@ -90,13 +98,6 @@ impl Pattern {
 mod tests {
     use super::*;
     use crate::transformations::*;
-
-    fn test_pattern() -> Pattern {
-        Pattern {
-            transform: Matrix::<4>::identity(),
-            kind: PatternKind::Test,
-        }
-    }
 
     #[test]
     fn creating_a_stripe_pattern() {
@@ -176,7 +177,7 @@ mod tests {
 
     #[test]
     fn assigning_a_transformation() {
-        let mut pattern = test_pattern();
+        let mut pattern = Pattern::test_pattern();
         pattern.transform = translation(1.0, 2.0, 3.0);
 
         assert_eq!(pattern.transform, translation(1.0, 2.0, 3.0));
@@ -186,7 +187,7 @@ mod tests {
     fn a_pattern_with_an_object_transformation() {
         let mut shape = Shape::sphere();
         shape.transform = scaling(2.0, 2.0, 2.0);
-        let pattern = test_pattern();
+        let pattern = Pattern::test_pattern();
 
         let c = pattern.color_at_shape(&shape, &Tuple::point(2.0, 3.0, 4.0));
 
@@ -196,7 +197,7 @@ mod tests {
     #[test]
     fn a_pattern_with_a_pattern_transformation() {
         let shape = Shape::sphere();
-        let mut pattern = test_pattern();
+        let mut pattern = Pattern::test_pattern();
         pattern.transform = scaling(2.0, 2.0, 2.0);
 
         let c = pattern.color_at_shape(&shape, &Tuple::point(2.0, 3.0, 4.0));
@@ -208,7 +209,7 @@ mod tests {
     fn a_pattern_with_both_an_object_and_a_pattern_transformation() {
         let mut shape = Shape::sphere();
         shape.transform = scaling(2.0, 2.0, 2.0);
-        let mut pattern = test_pattern();
+        let mut pattern = Pattern::test_pattern();
         pattern.transform = translation(0.5, 1.0, 1.5);
 
         let c = pattern.color_at_shape(&shape, &Tuple::point(2.5, 3.0, 3.5));

@@ -9,6 +9,8 @@ pub struct Material {
     pub shininess: f64,
     pub reflective: f64,
     pub pattern: Option<Pattern>,
+    pub transparency: f64,
+    pub refractive_index: f64,
 }
 
 impl Material {
@@ -21,6 +23,8 @@ impl Material {
             shininess: 200.0,
             reflective: 0.0,
             pattern: None,
+            transparency: 0.0,     // 0 to 1, where 0 is opaque.
+            refractive_index: 1.0, // vacuum-filed by default
         }
     }
 
@@ -92,10 +96,12 @@ mod tests {
         assert_eq!(m.reflective, 0.0);
     }
 
-    // Scenario: Transparency and Refractive Index for the default material
-    //   Given m â† material()
-    //   Then m.transparency = 0.0
-    //     And m.refractive_index = 1.0
+    #[test]
+    fn transparency_and_refractive_index_for_the_default_material() {
+        let m = Material::new();
+        assert_eq!(m.transparency, 0.0);
+        assert_eq!(m.refractive_index, 1.0);
+    }
 
     #[test]
     fn lighting_with_the_eye_between_the_light_and_the_surface() {

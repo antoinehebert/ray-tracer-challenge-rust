@@ -14,7 +14,7 @@ impl<'a> Intersection<'a> {
         Self { t, object }
     }
 
-    pub fn prepare_computations(&self, ray: &Ray) -> Computations {
+    pub fn prepare_computations(&self, ray: &Ray, xs: &Intersections) -> Computations {
         let point = ray.position(self.t);
         let eyev = -ray.direction;
         let mut normalv = self.object.normal_at(&point);
@@ -26,15 +26,53 @@ impl<'a> Intersection<'a> {
 
         let reflectv = ray.direction.reflect(&normalv);
 
+        let mut containers: Vec<&Shape> = vec![];
+        let mut n1 = 1.0;
+        let mut n2 = 1.0;
+        'refraction_index_loop: for i in xs {
+            if i == self {
+                if !containers.is_empty() {
+                    n1 = containers
+                        .last()
+                        .expect("there should be a last element in the list")
+                        .material
+                        .refractive_index
+                };
+            }
+
+            match containers.iter().position(|&o| o == i.object) {
+                Some(index) => {
+                    containers.remove(index);
+                }
+                None => {
+                    containers.push(i.object);
+                }
+            }
+
+            if i == self {
+                if !containers.is_empty() {
+                    n2 = containers
+                        .last()
+                        .expect("there should be a last element in the list")
+                        .material
+                        .refractive_index
+                };
+                break 'refraction_index_loop;
+            }
+        }
+
         Computations {
             t: self.t,
             object: self.object,
             point,
             over_point: point + normalv * EPSILON,
+            under_point: point - normalv * EPSILON,
             eyev,
             inside,
             normalv,
             reflectv,
+            n1,
+            n2,
         }
     }
 }
@@ -45,11 +83,14 @@ pub struct Computations<'a> {
     pub t: f64,
     pub object: &'a Shape,
     pub point: Tuple,
-    pub over_point: Tuple, // Prevent acne effect.
+    pub over_point: Tuple,  // Prevent objects from shadowing themselves
+    pub under_point: Tuple, // Where refracted rays will originate
     pub eyev: Tuple,
     pub inside: bool,
     pub normalv: Tuple,
     pub reflectv: Tuple,
+    pub n1: f64, // refractive_index from
+    pub n2: f64, // refractive_index to
 }
 
 // TODO: make this a method on Intersections.
@@ -61,7 +102,7 @@ pub fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::transformations::translation;
+    use crate::transformations::*;
 
     use super::*;
 
@@ -135,7 +176,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
         let shape = Shape::sphere();
         let i = Intersection::new(4.0, &shape);
-        let comps = i.prepare_computations(&r);
+        let comps = i.prepare_computations(&r, &vec![i.clone()]);
 
         assert_eq!(comps.t, i.t);
         assert_eq!(comps.object, i.object);
@@ -152,7 +193,7 @@ mod tests {
             Tuple::vector(0.0, -(2.0 as f64).sqrt() / 2.0, (2.0 as f64).sqrt() / 2.0),
         );
         let i = Intersection::new((2 as f64).sqrt(), &shape);
-        let comps = i.prepare_computations(&r);
+        let comps = i.prepare_computations(&r, &vec![i.clone()]);
         assert_eq!(
             comps.reflectv,
             Tuple::vector(0.0, (2.0 as f64).sqrt() / 2.0, (2.0 as f64).sqrt() / 2.0)
@@ -163,7 +204,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
         let shape = Shape::sphere();
         let i = Intersection::new(4.0, &shape);
-        let comps = i.prepare_computations(&r);
+        let comps = i.prepare_computations(&r, &vec![i.clone()]);
         assert!(!comps.inside);
     }
 
@@ -172,7 +213,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0.0, 0.0, 0.0), Tuple::vector(0.0, 0.0, 1.0));
         let shape = Shape::sphere();
         let i = Intersection::new(1.0, &shape);
-        let comps = i.prepare_computations(&r);
+        let comps = i.prepare_computations(&r, &vec![i.clone()]);
 
         assert_eq!(comps.t, i.t);
         assert_eq!(comps.object, i.object);
@@ -189,44 +230,83 @@ mod tests {
         let mut shape = Shape::sphere();
         shape.transform = translation(0.0, 0.0, 1.0);
         let i = Intersection::new(5.0, &shape);
-        let comps = i.prepare_computations(&r);
+        let comps = i.prepare_computations(&r, &vec![i.clone()]);
         assert!(comps.over_point.z < -EPSILON / 2.0);
         assert!(comps.point.z > comps.over_point.z);
     }
-    // Scenario: The under point is offset below the surface
-    //   Given r â† ray(point(0, 0, -5), vector(0, 0, 1))
-    //     And shape â† glass_sphere() with:
-    //       | transform | translation(0, 0, 1) |
-    //     And i â† intersection(5, shape)
-    //     And xs â† intersections(i)
-    //   When comps â† prepare_computations(i, r, xs)
-    //   Then comps.under_point.z > EPSILON/2
-    //     And comps.point.z < comps.under_point.z
 
-    // Scenario Outline: Finding n1 and n2 at various intersections
-    //   Given A â† glass_sphere() with:
-    //       | transform                 | scaling(2, 2, 2) |
-    //       | material.refractive_index | 1.5              |
-    //     And B â† glass_sphere() with:
-    //       | transform                 | translation(0, 0, -0.25) |
-    //       | material.refractive_index | 2.0                      |
-    //     And C â† glass_sphere() with:
-    //       | transform                 | translation(0, 0, 0.25) |
-    //       | material.refractive_index | 2.5                     |
-    //     And r â† ray(point(0, 0, -4), vector(0, 0, 1))
-    //     And xs â† intersections(2:A, 2.75:B, 3.25:C, 4.75:B, 5.25:C, 6:A)
-    //   When comps â† prepare_computations(xs[<index>], r, xs)
-    //   Then comps.n1 = <n1>
-    //     And comps.n2 = <n2>
+    //                    -------------
+    //                ---/             \---
+    //             --/          A          \--
+    //           -/                           \-
+    //          /                               \
+    //         /                                 \
+    //        /          ------- -------          \
+    //       /         -/      -X-      \-         \
+    //      /         /       /   \       \         \
+    //     0|       1/      2/    3\      4\       5 |
+    //------+--------+-------+-----+-------+--------+------------>
+    //      |        \       \     /       /        |
+    //      \         \       \   /       /         /
+    //       \         -\   B  -X-   C   /-         /
+    //        \          ------- -------          /
+    //         \                                 /
+    //          \                               /
+    //           -\                           /-
+    //             --\                     /--
+    //                ---\             /---
+    //                    -------------
+    #[test]
+    fn finding_n1_and_n2_at_various_intersections() {
+        let mut a = Shape::glass_sphere();
+        a.transform = scaling(2.0, 2.0, 2.0);
+        a.material.refractive_index = 1.5;
 
-    //   Examples:
-    //     | index | n1  | n2  |
-    //     | 0     | 1.0 | 1.5 |
-    //     | 1     | 1.5 | 2.0 |
-    //     | 2     | 2.0 | 2.5 |
-    //     | 3     | 2.5 | 2.5 |
-    //     | 4     | 2.5 | 1.5 |
-    //     | 5     | 1.5 | 1.0 |
+        let mut b = Shape::glass_sphere();
+        b.transform = translation(0.0, 0.0, -0.25);
+        b.material.refractive_index = 2.0;
+
+        let mut c = Shape::glass_sphere();
+        c.transform = translation(0.0, 0.0, 0.25);
+        c.material.refractive_index = 2.5;
+
+        let r = Ray::new(Tuple::point(0.0, 0.0, -4.0), Tuple::vector(0.0, 0.0, 1.0));
+        let xs: Intersections = vec![
+            Intersection::new(2.0, &a),
+            Intersection::new(2.75, &b),
+            Intersection::new(3.25, &c),
+            Intersection::new(4.75, &b),
+            Intersection::new(5.25, &c),
+            Intersection::new(6.0, &a),
+        ];
+
+        let examples = [
+            [1.0, 1.5],
+            [1.5, 2.0],
+            [2.0, 2.5],
+            [2.5, 2.5],
+            [2.5, 1.5],
+            [1.5, 1.0],
+        ];
+
+        for (index, ns) in examples.iter().enumerate() {
+            let comps = (xs[index]).prepare_computations(&r, &xs);
+            assert_eq!(comps.n1, ns[0]);
+            assert_eq!(comps.n2, ns[1]);
+        }
+    }
+
+    #[test]
+    fn the_under_point_is_offset_below_the_surface() {
+        let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+        let mut shape = Shape::glass_sphere();
+        shape.transform = translation(0., 0., 1.);
+        let i = Intersection::new(5., &shape);
+        let xs: Intersections = vec![i];
+        let comps = xs[0].prepare_computations(&r, &xs);
+        assert!(comps.under_point.z > (EPSILON / 2.));
+        assert!(comps.point.z < comps.under_point.z);
+    }
 
     // Scenario: The Schlick approximation under total internal reflection
     //   Given shape â† glass_sphere()

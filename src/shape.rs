@@ -29,6 +29,18 @@ impl Shape {
         }
     }
 
+    pub fn glass_sphere() -> Self {
+        let mut material = Material::new();
+        material.transparency = 1.0;
+        material.refractive_index = 1.5;
+
+        Shape {
+            transform: Matrix::<4>::identity(),
+            material: material,
+            kind: ShapeKind::Sphere,
+        }
+    }
+
     pub fn plane() -> Self {
         Shape {
             transform: Matrix::<4>::identity(),
@@ -334,6 +346,14 @@ mod tests {
         assert_eq!(s.material, m);
     }
 
+    #[test]
+    fn a_helper_for_producing_a_sphere_with_a_glassy_material() {
+        let s = Shape::glass_sphere();
+        assert_eq!(s.transform, Matrix::<4>::identity());
+        assert_eq!(s.material.transparency, 1.0);
+        assert_eq!(s.material.refractive_index, 1.5);
+    }
+
     // --------------
     // Feature: Shape
     // --------------
@@ -377,16 +397,6 @@ mod tests {
     //     And add_child(g2, s)
     //   When n â† normal_at(s, point(1.7321, 1.1547, -5.5774))
     //   Then n = vector(0.2857, 0.4286, -0.8571)
-
-    // ---------------
-    // Feature: Sphere
-    // ---------------
-
-    // Scenario: A helper for producing a sphere with a glassy material
-    //   Given s â† glass_sphere()
-    //   Then s.transform = identity_matrix
-    //     And s.material.transparency = 1.0
-    //     And s.material.refractive_index = 1.5
 
     // ---------------
     // Feature: Planes
