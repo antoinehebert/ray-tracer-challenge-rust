@@ -25,7 +25,6 @@ impl Canvas {
         self.pixels[x + y * self.width] = color;
     }
 
-    // TODO: make a version of this that outputs directly to a file.
     pub fn to_ppm<T: Write>(&self, out: &mut T) {
         writeln!(out, "P3").expect("not written!"); // Version/Flavor of PPM
         writeln!(out, "{} {}", self.width, self.height).expect("not written!");
