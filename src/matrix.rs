@@ -2,12 +2,6 @@ use crate::tuple::*;
 use crate::utils::*;
 use std::ops;
 
-// TODO: Use const generics when 1.51 is released, to dry the matrix implementation and only keep one!
-
-////////////////////////////////////////////////////////////////////////////////
-// Matrix4
-////////////////////////////////////////////////////////////////////////////////
-
 #[derive(Debug, Copy, Clone)]
 pub struct Matrix<const SIZE: usize> {
     values: [[f64; SIZE]; SIZE],
