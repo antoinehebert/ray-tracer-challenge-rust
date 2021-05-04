@@ -93,6 +93,35 @@ pub struct Computations<'a> {
     pub n2: f64, // refractive_index to
 }
 
+impl<'a> Computations<'a> {
+    // Approximation of Fresnel Effect
+    //
+    // Returns a number between 0 and 1, inclusive. This number is called the reflectance and represents what fraction
+    // of the light is reflected, given the surface information at the hit.
+    pub fn schlick(&self) -> f64 {
+        // find the cosine of the angle between the eye and normal vectors​
+        let mut cos = self.eyev.dot(&self.normalv);
+
+        // Total internal reflection can only occur if n1 > n2​
+        if self.n1 > self.n2 {
+            // DRY: we have the same code in World#refracted_color
+            let n = self.n1 / self.n2;
+            let sin2_t = n.powf(2.0) * (1.0 - cos.powf(2.0));
+            if sin2_t > 1.0 {
+                return 1.0;
+            }
+
+            // compute cosine of theta_t using trig identity​
+            let cos_t = (1.0 - sin2_t).sqrt();
+            // when n1 > n2, use cos(theta_t) instead​
+            cos = cos_t;
+        }
+
+        let r0 = ((self.n1 - self.n2) / (self.n1 + self.n2)).powf(2.0);
+        r0 + (1.0 - r0) * (1.0 - cos).powf(5.0)
+    }
+}
+
 // TODO: make this a method on Intersections.
 pub fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
     xs.iter()
@@ -102,7 +131,7 @@ pub fn hit<'a>(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::transformations::*;
+    use crate::{assert_almost_eq, transformations::*};
 
     use super::*;
 
@@ -308,29 +337,47 @@ mod tests {
         assert!(comps.point.z < comps.under_point.z);
     }
 
-    // Scenario: The Schlick approximation under total internal reflection
-    //   Given shape â† glass_sphere()
-    //     And r â† ray(point(0, 0, âˆš2/2), vector(0, 1, 0))
-    //     And xs â† intersections(-âˆš2/2:shape, âˆš2/2:shape)
-    //   When comps â† prepare_computations(xs[1], r, xs)
-    //     And reflectance â† schlick(comps)
-    //   Then reflectance = 1.0
+    #[test]
+    fn the_schlick_approximation_under_total_internal_reflection() {
+        let shape = Shape::glass_sphere();
+        let r = Ray::new(
+            Tuple::point(0.0, 0.0, 2.0_f64.sqrt() / 2.0),
+            Tuple::vector(0.0, 1.0, 0.0),
+        );
+        let xs = vec![
+            Intersection::new(-2.0_f64.sqrt() / 2.0, &shape),
+            Intersection::new(2.0_f64.sqrt() / 2.0, &shape),
+        ];
+        let comps = xs[1].prepare_computations(&r, &xs);
+        let reflectance = comps.schlick();
 
-    // Scenario: The Schlick approximation with a perpendicular viewing angle
-    //   Given shape â† glass_sphere()
-    //     And r â† ray(point(0, 0, 0), vector(0, 1, 0))
-    //     And xs â† intersections(-1:shape, 1:shape)
-    //   When comps â† prepare_computations(xs[1], r, xs)
-    //     And reflectance â† schlick(comps)
-    //   Then reflectance = 0.04
+        assert_eq!(reflectance, 1.0);
+    }
 
-    // Scenario: The Schlick approximation with small angle and n2 > n1
-    //   Given shape â† glass_sphere()
-    //     And r â† ray(point(0, 0.99, -2), vector(0, 0, 1))
-    //     And xs â† intersections(1.8589:shape)
-    //   When comps â† prepare_computations(xs[0], r, xs)
-    //     And reflectance â† schlick(comps)
-    //   Then reflectance = 0.48873
+    #[test]
+    fn the_schlick_approximation_with_a_perpendicular_viewing_angle() {
+        let shape = Shape::glass_sphere();
+        let r = Ray::new(Tuple::point(0.0, 0.0, 0.0), Tuple::vector(0.0, 1.0, 0.0));
+        let xs = vec![
+            Intersection::new(-1.0, &shape),
+            Intersection::new(1.0, &shape),
+        ];
+        let comps = xs[1].prepare_computations(&r, &xs);
+        let reflectance = comps.schlick();
+
+        assert_almost_eq!(reflectance, 0.04);
+    }
+
+    #[test]
+    fn the_schlick_approximation_with_small_angle_and_n2_gt_n1() {
+        let shape = Shape::glass_sphere();
+        let r = Ray::new(Tuple::point(0.0, 0.99, -2.0), Tuple::vector(0.0, 0.0, 1.0));
+        let xs = vec![Intersection::new(1.8589, &shape)];
+        let comps = xs[0].prepare_computations(&r, &xs);
+        let reflectance = comps.schlick();
+
+        assert_almost_eq!(reflectance, 0.48873);
+    }
 
     // Scenario: An intersection can encapsulate `u` and `v`
     //   Given s â† triangle(point(0, 1, 0), point(-1, 0, 0), point(1, 0, 0))
