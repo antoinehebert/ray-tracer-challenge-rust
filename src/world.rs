@@ -130,7 +130,7 @@ impl World {
         // Snell's law: sin(tetha_2) / sin(tetha_1) = v2 / v1 = n2 / n1
         let n_ratio = comps.n1 / comps.n2; // Yes, inverted from Snell's law...
         let cos_i = comps.eyev.dot(&comps.normalv); // cos(tetha_i) is the same as the dot product of the two vectors.
-        let sin2_t = n_ratio.powf(2.0) * (1.0 - cos_i.powf(2.0));
+        let sin2_t = n_ratio.powf(2.0) * (1.0 - cos_i.powf(2.0)); // Find sin(theta_t)^2 via trigonometric identity​
         if sin2_t > 1.0 {
             return BLACK;
         }
