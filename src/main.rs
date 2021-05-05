@@ -35,26 +35,30 @@ fn main() {
         return;
     }
 
-    chapter_10_patterns(&args[1]);
+    puttin_it_together(&args[1]);
 }
 
-const WIDTH: usize = 100;
+const WIDTH: usize = 2000;
 const HEIGHT: usize = WIDTH / 2;
 
 //
 // Putting it together. Exercises at the end of chapters.
 //
-fn chapter_10_patterns(filename: &str) {
+fn puttin_it_together(filename: &str) {
     let mut floor = Shape::plane();
     let mut floor_pattern = Pattern::stripe(BLUE, WHITE);
     floor_pattern.transform = rotation_y(PI / 4.0);
     floor.material.pattern = Some(floor_pattern);
+    floor.material.reflective = 0.8;
     floor.transform = translation(0.0, 0.01, 0.0);
 
     let mut middle = Shape::sphere();
     middle.transform = translation(-0.5, 1.0, 0.5);
     middle.material.diffuse = 0.7;
     middle.material.specular = 0.3;
+    middle.material.reflective = 0.3;
+    middle.material.specular = 1.0;
+    middle.material.shininess = 300.0;
     let mut middle_pattern =
         Pattern::gradient(Color::new(1.0, 0.5, 0.0), Color::new(0.0, 1.0, 1.0));
     middle_pattern.transform = translation(-1.5, 0.0, 0.0) * scaling(2.5, 2.5, 2.5);
@@ -64,15 +68,23 @@ fn chapter_10_patterns(filename: &str) {
     right.transform = translation(1.5, 0.5, -0.5) * scaling(0.5, 0.5, 0.5);
     right.material.diffuse = 0.7;
     right.material.specular = 0.3;
+    right.material.reflective = 0.1;
+    right.material.specular = 1.0;
+    right.material.shininess = 300.0;
     let mut right_pattern = Pattern::checkers(Color::new(0.5, 1.0, 0.1), RED);
     right_pattern.transform = scaling(0.25, 0.25, 0.25);
     right.material.pattern = Some(right_pattern);
 
     let mut left = Shape::sphere();
-    left.transform = translation(-1.5, 0.33, -0.75) * scaling(0.33, 0.33, 0.33);
-    left.material.color = Color::new(1.0, 0.8, 0.1);
-    left.material.diffuse = 0.7;
+    left.transform = translation(-0.75, 0.33, -0.75) * scaling(0.33, 0.33, 0.33);
+    // left.material.color = Color::new(1.0, 0.8, 0.1);
+    left.material.diffuse = 0.1;
+    left.material.ambient = 0.1;
     left.material.specular = 0.3;
+    left.material.transparency = 0.9;
+    left.material.reflective = 0.9;
+    left.material.specular = 1.0;
+    left.material.shininess = 300.0;
     let mut left_pattern = Pattern::ring(GREEN + BLUE, BLUE + RED);
     left_pattern.transform = rotation_x(PI / 2.0) * scaling(0.15, 0.15, 0.15);
     left.material.pattern = Some(left_pattern);

@@ -16,7 +16,7 @@ cargo test
 The app expects a `filename` parameter.
 
 ```bash
-cargo run your_file_name.ppm
+cargo run --release your_file_name.ppm
 ```
 
 # TODOs
