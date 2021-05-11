@@ -75,13 +75,12 @@ fn puttin_it_together(filename: &str) {
     right_pattern.transform = scaling(0.25, 0.25, 0.25);
     right.material.pattern = Some(right_pattern);
 
-    let mut left = Shape::sphere();
+    let mut left = Shape::glass_sphere();
     left.transform = translation(-0.75, 0.33, -0.75) * scaling(0.33, 0.33, 0.33);
     // left.material.color = Color::new(1.0, 0.8, 0.1);
     left.material.diffuse = 0.1;
     left.material.ambient = 0.1;
     left.material.specular = 0.3;
-    left.material.transparency = 0.9;
     left.material.reflective = 0.9;
     left.material.specular = 1.0;
     left.material.shininess = 300.0;

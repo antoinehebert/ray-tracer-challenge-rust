@@ -1,3 +1,5 @@
+use std::{f64::INFINITY, mem::swap};
+
 use crate::{
     intersection::{Intersection, Intersections},
     material::Material,
@@ -11,6 +13,7 @@ use crate::{
 enum ShapeKind {
     Sphere, // The sphere is always centered at the world origin...
     Plane,  // Plane is in xy, with the normal pointing in the positive y direction.
+    Cube,   // Centered at the world origin and going from -1 to 1.
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -34,7 +37,7 @@ impl Shape {
         material.transparency = 1.0;
         material.refractive_index = 1.5;
 
-        Shape {
+        Self {
             transform: Matrix::<4>::identity(),
             material: material,
             kind: ShapeKind::Sphere,
@@ -42,10 +45,18 @@ impl Shape {
     }
 
     pub fn plane() -> Self {
-        Shape {
+        Self {
             transform: Matrix::<4>::identity(),
             material: Material::new(),
             kind: ShapeKind::Plane,
+        }
+    }
+
+    pub fn cube() -> Self {
+        Self {
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+            kind: ShapeKind::Cube,
         }
     }
 
@@ -84,6 +95,19 @@ impl Shape {
                     ));
                 }
             }
+            ShapeKind::Cube { .. } => {
+                let (xtmin, xtmax) = check_axis(local_ray.origin.x, local_ray.direction.x);
+                let (ytmin, ytmax) = check_axis(local_ray.origin.y, local_ray.direction.y);
+                let (ztmin, ztmax) = check_axis(local_ray.origin.z, local_ray.direction.z);
+
+                let tmin = maxf(&[xtmin, ytmin, ztmin]);
+                let tmax = minf(&[xtmax, ytmax, ztmax]);
+
+                if tmax > tmin {
+                    result.push(Intersection::new(tmin, &self));
+                    result.push(Intersection::new(tmax, &self));
+                }
+            }
         };
 
         result
@@ -99,6 +123,8 @@ impl Shape {
         let local_normal = match self.kind {
             ShapeKind::Sphere => local_point - Tuple::point(0., 0., 0.),
             ShapeKind::Plane => Tuple::point(0.0, 1.0, 0.0),
+            // BUG!
+            ShapeKind::Cube => Tuple::point(0., 0., 0.),
         };
 
         let mut world_normal = sphere_inverted_transform.transpose() * local_normal;
@@ -109,6 +135,45 @@ impl Shape {
     }
 }
 
+fn minf(xs: &[f64]) -> f64 {
+    let x = xs
+        .iter()
+        .min_by(|&x, &y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
+        .unwrap();
+
+    *x
+}
+
+fn maxf(xs: &[f64]) -> f64 {
+    let x = xs
+        .iter()
+        .max_by(|&x, &y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
+        .unwrap();
+
+    *x
+}
+
+fn check_axis(origin: f64, direction: f64) -> (f64, f64) {
+    let tmin_numerator = -1.0 - origin;
+    let tmax_numerator = 1.0 - origin;
+
+    let mut tmin: f64;
+    let mut tmax: f64;
+    if direction.abs() >= EPSILON {
+        tmin = tmin_numerator / direction;
+        tmax = tmax_numerator / direction;
+    } else {
+        tmin = tmin_numerator * INFINITY;
+        tmax = tmax_numerator * INFINITY;
+    }
+
+    if tmin > tmax {
+        swap(&mut tmin, &mut tmax);
+    }
+
+    (tmin, tmax)
+}
+
 #[cfg(test)]
 mod tests {
     use std::f64::consts::PI;
@@ -117,6 +182,10 @@ mod tests {
     use crate::assert_almost_eq;
     use crate::transformations::*;
     use crate::utils::*;
+
+    //
+    // Sphere
+    //
 
     #[test]
     fn the_default_transformation() {
@@ -354,9 +423,9 @@ mod tests {
         assert_eq!(s.material.refractive_index, 1.5);
     }
 
-    // --------------
-    // Feature: Shape
-    // --------------
+    //
+    // Shape
+    //
 
     // Scenario: A shape has a parent attribute
     //   Given s â† test_shape()
@@ -398,9 +467,9 @@ mod tests {
     //   When n â† normal_at(s, point(1.7321, 1.1547, -5.5774))
     //   Then n = vector(0.2857, 0.4286, -0.8571)
 
-    // ---------------
-    // Feature: Planes
-    // ---------------
+    //
+    // Planes
+    //
 
     #[test]
     fn the_normal_of_a_plane_is_constant_everywhere() {
@@ -450,4 +519,116 @@ mod tests {
         assert_eq!(xs[0].t, 1.0);
         assert_eq!(xs[0].object, &p);
     }
+
+    //
+    // Cubes
+    //
+
+    #[test]
+    fn a_ray_intersects_a_cube() {
+        // +x
+        internal_a_ray_intersects_a_cube(
+            Tuple::point(5.0, 0.5, 0.0),
+            Tuple::vector(-1.0, 0.0, 0.0),
+            4.0,
+            6.0,
+        );
+        // -x
+        internal_a_ray_intersects_a_cube(
+            Tuple::point(-5.0, 0.5, 0.0),
+            Tuple::vector(1.0, 0.0, 0.0),
+            4.0,
+            6.0,
+        );
+        // +y
+        internal_a_ray_intersects_a_cube(
+            Tuple::point(0.5, 5.0, 0.0),
+            Tuple::vector(0.0, -1.0, 0.0),
+            4.0,
+            6.0,
+        );
+        // -y
+        internal_a_ray_intersects_a_cube(
+            Tuple::point(0.5, -5.0, 0.0),
+            Tuple::vector(0.0, 1.0, 0.0),
+            4.0,
+            6.0,
+        );
+        // +z
+        internal_a_ray_intersects_a_cube(
+            Tuple::point(0.5, 0.0, 5.0),
+            Tuple::vector(0.0, 0.0, -1.0),
+            4.0,
+            6.0,
+        );
+        // -z
+        internal_a_ray_intersects_a_cube(
+            Tuple::point(0.5, 0.0, -5.0),
+            Tuple::vector(0.0, 0.0, 1.0),
+            4.0,
+            6.0,
+        );
+        // inside
+        internal_a_ray_intersects_a_cube(
+            Tuple::point(0.0, 0.5, 0.0),
+            Tuple::vector(0.0, 0.0, 1.0),
+            -1.0,
+            1.0,
+        );
+    }
+
+    fn internal_a_ray_intersects_a_cube(origin: Tuple, direction: Tuple, t1: f64, t2: f64) {
+        let c = Shape::cube();
+        let r = Ray::new(origin, direction);
+        let xs = c.intersect(&r);
+
+        assert_eq!(xs.len(), 2);
+        assert_almost_eq!(xs[0].t, t1);
+        assert_almost_eq!(xs[1].t, t2);
+    }
+
+    fn internal_a_ray_misses_a_cube(origin: Tuple, direction: Tuple) {
+        let c = Shape::cube();
+        let r = Ray::new(origin, direction);
+        let xs = c.intersect(&r);
+        assert!(xs.is_empty());
+    }
+
+    #[test]
+    fn a_ray_misses_a_cube() {
+        internal_a_ray_misses_a_cube(
+            Tuple::point(-2.0, 0.0, 0.0),
+            Tuple::vector(0.2673, 0.5345, 0.8018),
+        );
+        internal_a_ray_misses_a_cube(
+            Tuple::point(0.0, -2.0, 0.0),
+            Tuple::vector(0.8018, 0.2673, 0.5345),
+        );
+        internal_a_ray_misses_a_cube(
+            Tuple::point(0.0, 0.0, -2.0),
+            Tuple::vector(0.5345, 0.8018, 0.2673),
+        );
+        internal_a_ray_misses_a_cube(Tuple::point(2.0, 0.0, 2.0), Tuple::vector(0.0, 0.0, -1.0));
+        internal_a_ray_misses_a_cube(Tuple::point(0.0, 2.0, 2.0), Tuple::vector(0.0, -1.0, 0.0));
+        internal_a_ray_misses_a_cube(Tuple::point(2.0, 2.0, 0.0), Tuple::vector(-1.0, 0.0, 0.0));
+    }
+    //
+    //
+    //    Scenario Outline: The normal on the surface of a cube
+    //      Given c â† cube()
+    //        And p â† <point>
+    //      When normal â† local_normal_at(c, p)
+    //      Then normal = <normal>
+    //
+    //      Examples:
+    //        | point                | normal           |
+    //        | point(1, 0.5, -0.8)  | vector(1, 0, 0)  |
+    //        | point(-1, -0.2, 0.9) | vector(-1, 0, 0) |
+    //        | point(-0.4, 1, -0.1) | vector(0, 1, 0)  |
+    //        | point(0.3, -1, -0.7) | vector(0, -1, 0) |
+    //        | point(-0.6, 0.3, 1)  | vector(0, 0, 1)  |
+    //        | point(0.4, 0.4, -1)  | vector(0, 0, -1) |
+    //        | point(1, 1, 1)       | vector(1, 0, 0)  |
+    //        | point(-1, -1, -1)    | vector(-1, 0, 0) |
+    //
 }
