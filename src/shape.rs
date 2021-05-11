@@ -121,10 +121,23 @@ impl Shape {
         let local_point = sphere_inverted_transform * *world_point;
 
         let local_normal = match self.kind {
-            ShapeKind::Sphere => local_point - Tuple::point(0., 0., 0.),
+            ShapeKind::Sphere => local_point - Tuple::point(0.0, 0.0, 0.0),
             ShapeKind::Plane => Tuple::point(0.0, 1.0, 0.0),
-            // BUG!
-            ShapeKind::Cube => Tuple::point(0., 0., 0.),
+            ShapeKind::Cube => {
+                let maxc = maxf(&[
+                    local_point.x.abs(),
+                    local_point.y.abs(),
+                    local_point.z.abs(),
+                ]);
+
+                if maxc == local_point.x.abs() {
+                    Tuple::point(local_point.x, 0.0, 0.0)
+                } else if maxc == local_point.y.abs() {
+                    Tuple::point(0.0, local_point.y, 0.0)
+                } else {
+                    Tuple::point(0.0, 0.0, local_point.z)
+                }
+            }
         };
 
         let mut world_normal = sphere_inverted_transform.transpose() * local_normal;
@@ -612,23 +625,46 @@ mod tests {
         internal_a_ray_misses_a_cube(Tuple::point(0.0, 2.0, 2.0), Tuple::vector(0.0, -1.0, 0.0));
         internal_a_ray_misses_a_cube(Tuple::point(2.0, 2.0, 0.0), Tuple::vector(-1.0, 0.0, 0.0));
     }
-    //
-    //
-    //    Scenario Outline: The normal on the surface of a cube
-    //      Given c â† cube()
-    //        And p â† <point>
-    //      When normal â† local_normal_at(c, p)
-    //      Then normal = <normal>
-    //
-    //      Examples:
-    //        | point                | normal           |
-    //        | point(1, 0.5, -0.8)  | vector(1, 0, 0)  |
-    //        | point(-1, -0.2, 0.9) | vector(-1, 0, 0) |
-    //        | point(-0.4, 1, -0.1) | vector(0, 1, 0)  |
-    //        | point(0.3, -1, -0.7) | vector(0, -1, 0) |
-    //        | point(-0.6, 0.3, 1)  | vector(0, 0, 1)  |
-    //        | point(0.4, 0.4, -1)  | vector(0, 0, -1) |
-    //        | point(1, 1, 1)       | vector(1, 0, 0)  |
-    //        | point(-1, -1, -1)    | vector(-1, 0, 0) |
-    //
+
+    fn internal_the_normal_on_the_surface_of_a_cube(point: Tuple, expected_normal: Tuple) {
+        let c = Shape::cube();
+        let normal = c.normal_at(&point);
+        assert_eq!(normal, expected_normal);
+    }
+
+    #[test]
+    fn the_normal_on_the_surface_of_a_cube() {
+        internal_the_normal_on_the_surface_of_a_cube(
+            Tuple::point(1.0, 0.5, -0.8),
+            Tuple::vector(1.0, 0.0, 0.0),
+        );
+        internal_the_normal_on_the_surface_of_a_cube(
+            Tuple::point(-1.0, -0.2, 0.9),
+            Tuple::vector(-1.0, 0.0, 0.0),
+        );
+        internal_the_normal_on_the_surface_of_a_cube(
+            Tuple::point(-0.4, 1.0, -0.1),
+            Tuple::vector(0.0, 1.0, 0.0),
+        );
+        internal_the_normal_on_the_surface_of_a_cube(
+            Tuple::point(0.3, -1.0, -0.7),
+            Tuple::vector(0.0, -1.0, 0.0),
+        );
+        internal_the_normal_on_the_surface_of_a_cube(
+            Tuple::point(-0.6, 0.3, 1.0),
+            Tuple::vector(0.0, 0.0, 1.0),
+        );
+        internal_the_normal_on_the_surface_of_a_cube(
+            Tuple::point(0.4, 0.4, -1.0),
+            Tuple::vector(0.0, 0.0, -1.0),
+        );
+        internal_the_normal_on_the_surface_of_a_cube(
+            Tuple::point(1.0, 1.0, 1.0),
+            Tuple::vector(1.0, 0.0, 0.0),
+        );
+        internal_the_normal_on_the_surface_of_a_cube(
+            Tuple::point(-1.0, -1.0, -1.0),
+            Tuple::vector(-1.0, 0.0, 0.0),
+        );
+    }
 }
