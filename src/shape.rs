@@ -6,7 +6,7 @@ use crate::{
     matrix::Matrix,
     ray::Ray,
     tuple::Tuple,
-    utils::EPSILON,
+    utils::{is_almost_equal, EPSILON},
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -96,6 +96,7 @@ impl Shape {
                 }
             }
             ShapeKind::Cube { .. } => {
+                // TODO: Optimize: You don't need to check all 6 planes if it's clear that the ray misses.
                 let (xtmin, xtmax) = check_axis(local_ray.origin.x, local_ray.direction.x);
                 let (ytmin, ytmax) = check_axis(local_ray.origin.y, local_ray.direction.y);
                 let (ztmin, ztmax) = check_axis(local_ray.origin.z, local_ray.direction.z);
@@ -103,7 +104,7 @@ impl Shape {
                 let tmin = maxf(&[xtmin, ytmin, ztmin]);
                 let tmax = minf(&[xtmax, ytmax, ztmax]);
 
-                if tmax > tmin {
+                if tmax >= tmin {
                     result.push(Intersection::new(tmin, &self));
                     result.push(Intersection::new(tmax, &self));
                 }
@@ -122,23 +123,24 @@ impl Shape {
 
         let local_normal = match self.kind {
             ShapeKind::Sphere => local_point - Tuple::point(0.0, 0.0, 0.0),
-            ShapeKind::Plane => Tuple::point(0.0, 1.0, 0.0),
+            ShapeKind::Plane => Tuple::vector(0.0, 1.0, 0.0),
             ShapeKind::Cube => {
-                let maxc = maxf(&[
-                    local_point.x.abs(),
-                    local_point.y.abs(),
-                    local_point.z.abs(),
-                ]);
+                let x_abs = local_point.x.abs();
+                let y_abs = local_point.y.abs();
+                let z_abs = local_point.z.abs();
 
-                if maxc == local_point.x.abs() {
-                    Tuple::point(local_point.x, 0.0, 0.0)
-                } else if maxc == local_point.y.abs() {
-                    Tuple::point(0.0, local_point.y, 0.0)
+                let maxc = maxf(&[x_abs, y_abs, z_abs]);
+
+                if maxc == x_abs {
+                    Tuple::vector(local_point.x, 0.0, 0.0)
+                } else if maxc == y_abs {
+                    Tuple::vector(0.0, local_point.y, 0.0)
                 } else {
-                    Tuple::point(0.0, 0.0, local_point.z)
+                    Tuple::vector(0.0, 0.0, local_point.z)
                 }
             }
         };
+        assert!(local_normal.is_vector());
 
         let mut world_normal = sphere_inverted_transform.transpose() * local_normal;
         // Hack: Instead of removing any translation by taking a 3x3 submatrix of the transform, we just set w to 0.
@@ -666,5 +668,15 @@ mod tests {
             Tuple::point(-1.0, -1.0, -1.0),
             Tuple::vector(-1.0, 0.0, 0.0),
         );
+    }
+
+    #[test]
+    fn maxf_returns_the_max() {
+        assert_eq!(maxf(&[67.5, 128.8, 128.9, 33.4]), 128.9);
+    }
+
+    #[test]
+    fn minf_returns_the_max() {
+        assert_eq!(minf(&[67.5, 128.8, 128.9, 33.4]), 33.4);
     }
 }
