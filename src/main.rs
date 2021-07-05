@@ -14,7 +14,7 @@ mod tuple;
 mod utils;
 mod world;
 
-use std::{env, f64::consts::PI};
+use std::env;
 
 use std::fs::File;
 
@@ -35,72 +35,168 @@ fn main() {
         return;
     }
 
-    puttin_it_together(&args[1]);
+    putting_it_together(&args[1]);
 }
 
-const WIDTH: usize = 2000;
+const WIDTH: usize = 400;
 const HEIGHT: usize = WIDTH / 2;
 
 //
 // Putting it together. Exercises at the end of chapters.
 //
-fn puttin_it_together(filename: &str) {
-    let mut floor = Shape::plane();
-    let mut floor_pattern = Pattern::stripe(BLUE, WHITE);
-    floor_pattern.transform = rotation_y(PI / 4.0);
-    floor.material.pattern = Some(floor_pattern);
-    floor.material.reflective = 0.8;
-    floor.transform = translation(0.0, 0.01, 0.0);
-
-    let mut middle = Shape::sphere();
-    middle.transform = translation(-0.5, 1.0, 0.5);
-    middle.material.diffuse = 0.7;
-    middle.material.specular = 0.3;
-    middle.material.reflective = 0.3;
-    middle.material.specular = 1.0;
-    middle.material.shininess = 300.0;
-    let mut middle_pattern =
-        Pattern::gradient(Color::new(1.0, 0.5, 0.0), Color::new(0.0, 1.0, 1.0));
-    middle_pattern.transform = translation(-1.5, 0.0, 0.0) * scaling(2.5, 2.5, 2.5);
-    middle.material.pattern = Some(middle_pattern);
-
-    let mut right = Shape::sphere();
-    right.transform = translation(1.5, 0.5, -0.5) * scaling(0.5, 0.5, 0.5);
-    right.material.diffuse = 0.7;
-    right.material.specular = 0.3;
-    right.material.reflective = 0.1;
-    right.material.specular = 1.0;
-    right.material.shininess = 300.0;
-    let mut right_pattern = Pattern::checkers(Color::new(0.5, 1.0, 0.1), RED);
-    right_pattern.transform = scaling(0.25, 0.25, 0.25);
-    right.material.pattern = Some(right_pattern);
-
-    let mut left = Shape::glass_sphere();
-    left.transform = translation(-0.75, 0.33, -0.75) * scaling(0.33, 0.33, 0.33);
-    // left.material.color = Color::new(1.0, 0.8, 0.1);
-    left.material.diffuse = 0.1;
-    left.material.ambient = 0.1;
-    left.material.specular = 0.3;
-    left.material.reflective = 0.9;
-    left.material.specular = 1.0;
-    left.material.shininess = 300.0;
-    let mut left_pattern = Pattern::ring(GREEN + BLUE, BLUE + RED);
-    left_pattern.transform = rotation_x(PI / 2.0) * scaling(0.15, 0.15, 0.15);
-    left.material.pattern = Some(left_pattern);
-
-    let light = Light::new(Tuple::point(-10.0, 10.0, -10.0), WHITE);
-    let mut world = World::new(light);
-    world.objects.push(floor);
-    world.objects.push(middle);
-    world.objects.push(right);
-    world.objects.push(left);
-
-    let mut camera = Camera::new(WIDTH, HEIGHT, PI / 3.0);
+fn putting_it_together(filename: &str) {
+    // From: https://forum.raytracerchallenge.com/thread/6/tables-scene-description
+    let mut camera = Camera::new(WIDTH, HEIGHT, 0.785);
     camera.transform = view_transform(
-        Tuple::point(0.0, 1.5, -5.0),
-        Tuple::point(0.0, 1.0, 0.0),
+        Tuple::point(8.0, 6.0, -8.0),
+        Tuple::point(0.0, 3.0, 0.0),
         Tuple::vector(0.0, 1.0, 0.0),
     );
+
+    let light = Light::new(Tuple::point(0.0, 6.9, -5.0), Color::new(1.0, 1.0, 0.9));
+
+    let mut world = World::new(light);
+
+    let mut floor_ceiling = Shape::cube();
+    floor_ceiling.transform = scaling(20.0, 7.0, 20.0) * translation(0.0, 1.0, 0.1);
+    let mut pattern = Pattern::checkers(BLACK, Color::new(0.25, 0.25, 0.25));
+    pattern.transform = scaling(0.07, 0.07, 0.07);
+    floor_ceiling.material.pattern = Some(pattern);
+    floor_ceiling.material.ambient = 0.25;
+    floor_ceiling.material.diffuse = 0.7;
+    floor_ceiling.material.specular = 0.9;
+    floor_ceiling.material.shininess = 300.0;
+    floor_ceiling.material.reflective = 0.1;
+    world.objects.push(floor_ceiling);
+
+    let mut walls = Shape::cube();
+    walls.transform = scaling(10.0, 10.0, 10.0);
+    let mut pattern = Pattern::checkers(
+        Color::new(0.4863, 0.3765, 0.2941),
+        Color::new(0.3725, 0.2902, 0.2275),
+    );
+    pattern.transform = scaling(0.05, 20.0, 0.05);
+    walls.material.pattern = Some(pattern);
+    walls.material.ambient = 0.1;
+    walls.material.diffuse = 0.7;
+    walls.material.specular = 0.9;
+    walls.material.shininess = 300.0;
+    walls.material.reflective = 0.1;
+    world.objects.push(walls);
+
+    let mut table_top = Shape::cube();
+    table_top.transform = translation(0.0, 3.1, 0.0) * scaling(3.0, 0.1, 2.0);
+    let mut pattern = Pattern::stripe(
+        Color::new(0.5529, 0.4235, 0.3255),
+        Color::new(0.6588, 0.5098, 0.4000),
+    );
+    pattern.transform = scaling(0.05, 0.05, 0.05) * rotation_y(0.1);
+    table_top.material.pattern = Some(pattern);
+    table_top.material.ambient = 0.1;
+    table_top.material.diffuse = 0.7;
+    table_top.material.specular = 0.9;
+    table_top.material.shininess = 300.0;
+    table_top.material.reflective = 0.2;
+    world.objects.push(table_top);
+
+    let mut leg_1 = Shape::cube();
+    leg_1.transform = translation(2.7, 1.5, -1.7) * scaling(0.1, 1.5, 0.1);
+    leg_1.material.color = Color::new(0.5529, 0.4235, 0.3255);
+    leg_1.material.ambient = 0.2;
+    leg_1.material.diffuse = 0.7;
+
+    let mut leg_2 = leg_1.clone();
+    leg_2.transform = translation(2.7, 1.5, 1.7) * scaling(0.1, 1.5, 0.1);
+
+    let mut leg_3 = leg_1.clone();
+    leg_3.transform = translation(-2.7, 1.5, -1.7) * scaling(0.1, 1.5, 0.1);
+
+    let mut leg_4 = leg_1.clone();
+    leg_4.transform = translation(-2.7, 1.5, 1.7) * scaling(0.1, 1.5, 0.1);
+
+    world.objects.push(leg_1);
+    world.objects.push(leg_2);
+    world.objects.push(leg_3);
+    world.objects.push(leg_4);
+
+    let mut glass_cube = Shape::cube();
+    glass_cube.transform =
+        translation(0.0, 3.45001, 0.0) * rotation_y(0.2) * scaling(0.25, 0.25, 0.25);
+    glass_cube.material.color = Color::new(1.0, 1.0, 0.8);
+    glass_cube.material.ambient = 0.0;
+    glass_cube.material.diffuse = 0.3;
+    glass_cube.material.specular = 0.9;
+    glass_cube.material.shininess = 300.0;
+    glass_cube.material.reflective = 0.1;
+    glass_cube.material.transparency = 0.7;
+    glass_cube.material.refractive_index = 1.5;
+    world.objects.push(glass_cube);
+
+    let mut little_cube_1 = Shape::cube();
+    little_cube_1.transform =
+        translation(1.0, 3.35, -0.9) * rotation_y(-0.4) * scaling(0.15, 0.15, 0.15);
+    little_cube_1.material.color = Color::new(1.0, 0.5, 0.5);
+    little_cube_1.material.reflective = 0.6;
+    little_cube_1.material.diffuse = 0.4;
+    world.objects.push(little_cube_1);
+
+    let mut little_cube_2 = Shape::cube();
+    little_cube_2.transform =
+        translation(-1.5, 3.27, 0.3) * rotation_y(0.4) * scaling(0.15, 0.7, 0.15);
+    little_cube_2.material.color = Color::new(1.0, 1.0, 0.5);
+    world.objects.push(little_cube_2);
+
+    let mut little_cube_3 = Shape::cube();
+    little_cube_3.transform =
+        translation(0.0, 3.25, 1.0) * rotation_y(0.4) * scaling(0.2, 0.05, 0.05);
+    little_cube_3.material.color = Color::new(0.5, 1.0, 0.5);
+    world.objects.push(little_cube_3);
+
+    let mut little_cube_4 = Shape::cube();
+    little_cube_4.transform =
+        translation(-0.6, 3.4, -1.0) * rotation_y(0.8) * scaling(0.05, 0.2, 0.05);
+    little_cube_4.material.color = Color::new(0.5, 0.5, 1.0);
+    world.objects.push(little_cube_4);
+
+    let mut little_cube_5 = Shape::cube();
+    little_cube_5.transform =
+        translation(2.0, 3.4, 1.0) * rotation_y(0.8) * scaling(0.05, 0.2, 0.05);
+    little_cube_5.material.color = Color::new(0.5, 1.0, 1.0);
+    world.objects.push(little_cube_5);
+
+    let mut frame_1 = Shape::cube();
+    frame_1.transform = translation(-10.0, 4.0, 1.0) * scaling(0.05, 1.0, 1.0);
+    frame_1.material.color = Color::new(0.7098, 0.2471, 0.2196);
+    frame_1.material.diffuse = 0.6;
+    world.objects.push(frame_1);
+
+    let mut frame_2 = Shape::cube();
+    frame_2.transform = translation(-10.0, 3.4, 2.7) * scaling(0.05, 0.4, 0.4);
+    frame_2.material.color = Color::new(0.2667, 0.2706, 0.6902);
+    frame_2.material.diffuse = 0.6;
+    world.objects.push(frame_2);
+
+    let mut frame_3 = Shape::cube();
+    frame_3.transform = translation(-10.0, 4.6, 2.7) * scaling(0.05, 0.4, 0.4);
+    frame_3.material.color = Color::new(0.3098, 0.5961, 0.3098);
+    frame_3.material.diffuse = 0.6;
+    world.objects.push(frame_3);
+
+    let mut mirror_frame = Shape::cube();
+    mirror_frame.transform = translation(-2.0, 3.5, 9.95) * scaling(5.0, 1.5, 0.05);
+    mirror_frame.material.color = Color::new(0.3882, 0.2627, 0.1882);
+    mirror_frame.material.diffuse = 0.7;
+    world.objects.push(mirror_frame);
+
+    let mut mirror = Shape::cube();
+    mirror.transform = translation(-2.0, 3.5, 9.95) * scaling(4.8, 1.4, 0.06);
+    mirror.material.color = BLACK;
+    mirror.material.diffuse = 0.0;
+    mirror.material.ambient = 0.0;
+    mirror.material.specular = 0.0;
+    mirror.material.shininess = 300.0;
+    mirror.material.reflective = 1.0;
+    world.objects.push(mirror);
 
     let canvas = camera.render(&world);
 

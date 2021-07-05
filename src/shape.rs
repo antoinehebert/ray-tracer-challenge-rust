@@ -65,7 +65,7 @@ impl Shape {
         let local_ray = world_ray.transform(
             self.transform
                 .inverse()
-                .expect("shape transfor should be invertible"),
+                .expect("shape transform should be invertible"),
         );
 
         let mut result = Vec::new();
@@ -96,13 +96,33 @@ impl Shape {
                 }
             }
             ShapeKind::Cube { .. } => {
+                // Treat the cube as if it were composed of 6 panes. The intersection of the ray with that square will
+                // always be those two points: the largest minimum t value and the smallest maximum t value.
+                //
+                // 2D example: Here B is the larges mimimum t and C the smallest maximum t.
+                //
+                //                                       /->
+                //                |                |  /--
+                //                |                D--
+                //        --------+--------------C-+--------
+                //                |           /--  |
+                //                |        /--     |
+                //                |     /--        |
+                //                |  /--           |
+                //                |/-              |
+                //              /-B                |
+                //         --A----+----------------+--------
+                //         --     |                |
+                //                |                |
+                //                |                |
+                //
                 // TODO: Optimize: You don't need to check all 6 planes if it's clear that the ray misses.
                 let (xtmin, xtmax) = check_axis(local_ray.origin.x, local_ray.direction.x);
                 let (ytmin, ytmax) = check_axis(local_ray.origin.y, local_ray.direction.y);
                 let (ztmin, ztmax) = check_axis(local_ray.origin.z, local_ray.direction.z);
 
-                let tmin = maxf(&[xtmin, ytmin, ztmin]);
-                let tmax = minf(&[xtmax, ytmax, ztmax]);
+                let tmin = xtmin.max(ytmin).max(ztmin);
+                let tmax = xtmax.min(ytmax).min(ztmax);
 
                 if tmax >= tmin {
                     result.push(Intersection::new(tmin, &self));
@@ -115,11 +135,11 @@ impl Shape {
     }
 
     pub fn normal_at(&self, world_point: &Tuple) -> Tuple {
-        let sphere_inverted_transform = self
+        let shape_inverted_transform = self
             .transform
             .inverse()
             .expect("Transform should be invertible");
-        let local_point = sphere_inverted_transform * *world_point;
+        let local_point = shape_inverted_transform * *world_point;
 
         let local_normal = match self.kind {
             ShapeKind::Sphere => local_point - Tuple::point(0.0, 0.0, 0.0),
@@ -129,7 +149,7 @@ impl Shape {
                 let y_abs = local_point.y.abs();
                 let z_abs = local_point.z.abs();
 
-                let maxc = maxf(&[x_abs, y_abs, z_abs]);
+                let maxc = x_abs.max(y_abs).max(z_abs);
 
                 if maxc == x_abs {
                     Tuple::vector(local_point.x, 0.0, 0.0)
@@ -142,7 +162,7 @@ impl Shape {
         };
         assert!(local_normal.is_vector());
 
-        let mut world_normal = sphere_inverted_transform.transpose() * local_normal;
+        let mut world_normal = shape_inverted_transform.transpose() * local_normal;
         // Hack: Instead of removing any translation by taking a 3x3 submatrix of the transform, we just set w to 0.
         world_normal.w = 0.;
 
@@ -150,26 +170,8 @@ impl Shape {
     }
 }
 
-fn minf(xs: &[f64]) -> f64 {
-    let x = xs
-        .iter()
-        .min_by(|&x, &y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
-        .unwrap();
-
-    *x
-}
-
-fn maxf(xs: &[f64]) -> f64 {
-    let x = xs
-        .iter()
-        .max_by(|&x, &y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal))
-        .unwrap();
-
-    *x
-}
-
 fn check_axis(origin: f64, direction: f64) -> (f64, f64) {
-    let tmin_numerator = -1.0 - origin;
+    let tmin_numerator = (-1.0) - origin;
     let tmax_numerator = 1.0 - origin;
 
     let mut tmin: f64;
@@ -178,8 +180,8 @@ fn check_axis(origin: f64, direction: f64) -> (f64, f64) {
         tmin = tmin_numerator / direction;
         tmax = tmax_numerator / direction;
     } else {
-        tmin = tmin_numerator * INFINITY;
-        tmax = tmax_numerator * INFINITY;
+        tmin = tmin_numerator * f64::INFINITY;
+        tmax = tmax_numerator * f64::INFINITY;
     }
 
     if tmin > tmax {
@@ -668,15 +670,5 @@ mod tests {
             Tuple::point(-1.0, -1.0, -1.0),
             Tuple::vector(-1.0, 0.0, 0.0),
         );
-    }
-
-    #[test]
-    fn maxf_returns_the_max() {
-        assert_eq!(maxf(&[67.5, 128.8, 128.9, 33.4]), 128.9);
-    }
-
-    #[test]
-    fn minf_returns_the_max() {
-        assert_eq!(minf(&[67.5, 128.8, 128.9, 33.4]), 33.4);
     }
 }
