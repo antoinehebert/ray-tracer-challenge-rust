@@ -1,4 +1,4 @@
-use std::{f64::INFINITY, mem::swap};
+use std::mem::swap;
 
 use crate::{
     intersection::{Intersection, Intersections},
@@ -225,7 +225,6 @@ mod tests {
     use super::*;
     use crate::assert_almost_eq;
     use crate::transformations::*;
-    use crate::utils::*;
 
     //
     // Sphere

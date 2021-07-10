@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Allow dead code while experimenting...
+
 mod camera;
 mod canvas;
 mod color;
