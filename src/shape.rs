@@ -11,9 +11,10 @@ use crate::{
 
 #[derive(Debug, PartialEq, Clone)]
 enum ShapeKind {
-    Sphere, // The sphere is always centered at the world origin...
-    Plane,  // Plane is in xy, with the normal pointing in the positive y direction.
-    Cube,   // Centered at the world origin and going from -1 to 1.
+    Sphere,   // The sphere is always centered at the world origin...
+    Plane,    // Plane is in xy, with the normal pointing in the positive y direction.
+    Cube,     // Centered at the world origin and going from -1 to 1.
+    Cylinder, // Radius of 1, extending to infinity in both +y and -y.
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -60,6 +61,14 @@ impl Shape {
         }
     }
 
+    pub fn cylinder() -> Self {
+        Self {
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+            kind: ShapeKind::Cylinder,
+        }
+    }
+
     // Returns intersection points (time) along `ray`.
     pub fn intersect(&self, world_ray: &Ray) -> Intersections {
         let local_ray = world_ray.transform(
@@ -70,7 +79,7 @@ impl Shape {
 
         let mut result = Vec::new();
         match self.kind {
-            ShapeKind::Sphere { .. } => {
+            ShapeKind::Sphere => {
                 // The sphere is always centered at the world origin...
                 let sphere_to_ray = local_ray.origin - Tuple::point(0., 0., 0.);
                 let a = local_ray.direction.dot(&local_ray.direction);
@@ -78,7 +87,7 @@ impl Shape {
                 let c = sphere_to_ray.dot(&sphere_to_ray) - 1.;
 
                 // Classic quadratic formula!
-                let discriminant = b.powf(2.) - 4. * a * c;
+                let discriminant = b.powi(2) - 4. * a * c;
 
                 if discriminant >= 0. {
                     let sqrt = discriminant.sqrt();
@@ -86,7 +95,7 @@ impl Shape {
                     result.push(Intersection::new((-b + sqrt) / (2. * a), &self));
                 }
             }
-            ShapeKind::Plane { .. } => {
+            ShapeKind::Plane => {
                 // Plane is in xy, with the normal pointing in the positive y direction.
                 if local_ray.direction.y.abs() >= EPSILON {
                     result.push(Intersection::new(
@@ -95,25 +104,25 @@ impl Shape {
                     ));
                 }
             }
-            ShapeKind::Cube { .. } => {
+            ShapeKind::Cube => {
                 // Treat the cube as if it were composed of 6 panes. The intersection of the ray with that square will
                 // always be those two points: the largest minimum t value and the smallest maximum t value.
                 //
                 // 2D example: Here B is the larges mimimum t and C the smallest maximum t.
                 //
-                //                                       /->
-                //                |                |  /--
-                //                |                D--
-                //        --------+--------------C-+--------
-                //                |           /--  |
-                //                |        /--     |
-                //                |     /--        |
-                //                |  /--           |
-                //                |/-              |
-                //              /-B                |
-                //         --A----+----------------+--------
-                //         --     |                |
-                //                |                |
+                //                |                |  .>
+                //                |                 .
+                //                |               .D
+                //        --------+------------.-C-+--------
+                //                |          .     |
+                //                |       .        |
+                //                |    .           |
+                //                | .              |
+                //                .                |
+                //              . B                |
+                //         --A.---+----------------+--------
+                //          .     |                |
+                //        .       |                |
                 //                |                |
                 //
                 // TODO: Optimize: You don't need to check all 6 planes if it's clear that the ray misses.
@@ -127,6 +136,23 @@ impl Shape {
                 if tmax >= tmin {
                     result.push(Intersection::new(tmin, &self));
                     result.push(Intersection::new(tmax, &self));
+                }
+            }
+            ShapeKind::Cylinder => {
+                let a = local_ray.direction.x.powi(2) + local_ray.direction.z.powi(2);
+
+                if !is_almost_equal(a, 0.0) {
+                    let b = 2.0 * local_ray.origin.x * local_ray.direction.x
+                        + 2.0 * local_ray.origin.z * local_ray.direction.z;
+                    let c = local_ray.origin.x.powi(2) + local_ray.origin.z.powi(2) - 1.0;
+
+                    let discriminant = b.powi(2) - 4.0 * a * c;
+
+                    if discriminant >= 0. {
+                        let sqrt = discriminant.sqrt();
+                        result.push(Intersection::new((-b - sqrt) / (2. * a), &self));
+                        result.push(Intersection::new((-b + sqrt) / (2. * a), &self));
+                    }
                 }
             }
         };
@@ -159,6 +185,7 @@ impl Shape {
                     Tuple::vector(0.0, 0.0, local_point.z)
                 }
             }
+            ShapeKind::Cylinder => Tuple::vector(0.0, 0.0, 0.0), // BUG!
         };
         assert!(local_normal.is_vector());
 
@@ -671,4 +698,135 @@ mod tests {
             Tuple::vector(-1.0, 0.0, 0.0),
         );
     }
+
+    //
+    // Feature: Cylinders
+    //
+
+    fn internal_a_ray_misses_a_cylinder(origin: Tuple, direction: Tuple) {
+        assert!(origin.is_point());
+        assert!(direction.is_vector());
+
+        let r = Ray::new(origin, direction.normalize());
+        let cyl = Shape::cylinder();
+
+        let xs = cyl.intersect(&r);
+        assert_eq!(xs.len(), 0);
+    }
+
+    #[test]
+    fn a_ray_misses_a_cylinder() {
+        internal_a_ray_misses_a_cylinder(Tuple::point(1., 0., 0.), Tuple::vector(0., 1., 0.));
+        internal_a_ray_misses_a_cylinder(Tuple::point(0., 0., 0.), Tuple::vector(0., 1., 0.));
+        internal_a_ray_misses_a_cylinder(Tuple::point(0., 0., -5.), Tuple::vector(1., 1., 1.));
+    }
+
+    fn internal_a_ray_strikes_a_cylinder(origin: Tuple, direction: Tuple, t0: f64, t1: f64) {
+        let cyl = Shape::cylinder();
+        let ray = Ray::new(origin, direction.normalize());
+        let xs = cyl.intersect(&ray);
+
+        assert_eq!(xs.len(), 2);
+        assert_almost_eq!(xs[0].t, t0);
+        assert_almost_eq!(xs[1].t, t1);
+    }
+
+    #[test]
+    fn a_ray_strikes_a_cylinder() {
+        internal_a_ray_strikes_a_cylinder(
+            Tuple::point(1.0, 0.0, -5.0),
+            Tuple::vector(0.0, 0.0, 1.0),
+            5.0,
+            5.0,
+        );
+        internal_a_ray_strikes_a_cylinder(
+            Tuple::point(0.0, 0.0, -5.0),
+            Tuple::vector(0.0, 0.0, 1.0),
+            4.0,
+            6.0,
+        );
+        internal_a_ray_strikes_a_cylinder(
+            Tuple::point(0.5, 0.0, -5.0),
+            Tuple::vector(0.1, 1.0, 1.0),
+            6.80798,
+            7.08872,
+        );
+    }
+
+    /*
+    Scenario Outline: Normal vector on a cylinder
+      Given cyl â† cylinder()
+      When n â† local_normal_at(cyl, <point>)
+      Then n = <normal>
+
+      Examples:
+        | point           | normal           |
+        | point(1, 0, 0)  | vector(1, 0, 0)  |
+        | point(0, 5, -1) | vector(0, 0, -1) |
+        | point(0, -2, 1) | vector(0, 0, 1)  |
+        | point(-1, 1, 0) | vector(-1, 0, 0) |
+
+    Scenario: The default minimum and maximum for a cylinder
+      Given cyl â† cylinder()
+      Then cyl.minimum = -infinity
+        And cyl.maximum = infinity
+
+    Scenario Outline: Intersecting a constrained cylinder
+      Given cyl â† cylinder()
+        And cyl.minimum â† 1
+        And cyl.maximum â† 2
+        And direction â† normalize(<direction>)
+        And r â† ray(<point>, direction)
+      When xs â† local_intersect(cyl, r)
+      Then xs.count = <count>
+
+      Examples:
+        |   | point             | direction         | count |
+        | 1 | point(0, 1.5, 0)  | vector(0.1, 1, 0) | 0     |
+        | 2 | point(0, 3, -5)   | vector(0, 0, 1)   | 0     |
+        | 3 | point(0, 0, -5)   | vector(0, 0, 1)   | 0     |
+        | 4 | point(0, 2, -5)   | vector(0, 0, 1)   | 0     |
+        | 5 | point(0, 1, -5)   | vector(0, 0, 1)   | 0     |
+        | 6 | point(0, 1.5, -2) | vector(0, 0, 1)   | 2     |
+
+    Scenario: The default closed value for a cylinder
+      Given cyl â† cylinder()
+      Then cyl.closed = false
+
+    Scenario Outline: Intersecting the caps of a closed cylinder
+      Given cyl â† cylinder()
+        And cyl.minimum â† 1
+        And cyl.maximum â† 2
+        And cyl.closed â† true
+        And direction â† normalize(<direction>)
+        And r â† ray(<point>, direction)
+      When xs â† local_intersect(cyl, r)
+      Then xs.count = <count>
+
+      Examples:
+        |   | point            | direction        | count |
+        | 1 | point(0, 3, 0)   | vector(0, -1, 0) | 2     |
+        | 2 | point(0, 3, -2)  | vector(0, -1, 2) | 2     |
+        | 3 | point(0, 4, -2)  | vector(0, -1, 1) | 2     | # corner case
+        | 4 | point(0, 0, -2)  | vector(0, 1, 2)  | 2     |
+        | 5 | point(0, -1, -2) | vector(0, 1, 1)  | 2     | # corner case
+
+    Scenario Outline: The normal vector on a cylinder's end caps
+      Given cyl â† cylinder()
+        And cyl.minimum â† 1
+        And cyl.maximum â† 2
+        And cyl.closed â† true
+      When n â† local_normal_at(cyl, <point>)
+      Then n = <normal>
+
+      Examples:
+        | point            | normal           |
+        | point(0, 1, 0)   | vector(0, -1, 0) |
+        | point(0.5, 1, 0) | vector(0, -1, 0) |
+        | point(0, 1, 0.5) | vector(0, -1, 0) |
+        | point(0, 2, 0)   | vector(0, 1, 0)  |
+        | point(0.5, 2, 0) | vector(0, 1, 0)  |
+        | point(0, 2, 0.5) | vector(0, 1, 0)  |
+
+    */
 }
