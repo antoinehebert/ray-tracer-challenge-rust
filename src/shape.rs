@@ -185,7 +185,7 @@ impl Shape {
                     Tuple::vector(0.0, 0.0, local_point.z)
                 }
             }
-            ShapeKind::Cylinder => Tuple::vector(0.0, 0.0, 0.0), // BUG!
+            ShapeKind::Cylinder => Tuple::vector(local_point.x, 0.0, local_point.z),
         };
         assert!(local_normal.is_vector());
 
@@ -752,19 +752,28 @@ mod tests {
         );
     }
 
+    #[test]
+    fn normal_vector_on_a_cylinder() {
+        let cyl = Shape::cylinder();
+        assert_eq!(
+            cyl.normal_at(&Tuple::point(1.0, 0.0, 0.0)),
+            Tuple::vector(1.0, 0.0, 0.0)
+        );
+        assert_eq!(
+            cyl.normal_at(&Tuple::point(0.0, 5.0, -1.0)),
+            Tuple::vector(0.0, 0.0, -1.0)
+        );
+        assert_eq!(
+            cyl.normal_at(&Tuple::point(0.0, -2.0, 1.0)),
+            Tuple::vector(0.0, 0.0, 1.0)
+        );
+        assert_eq!(
+            cyl.normal_at(&Tuple::point(-1.0, 1.0, 0.0)),
+            Tuple::vector(-1.0, 0.0, 0.0)
+        );
+    }
+
     /*
-    Scenario Outline: Normal vector on a cylinder
-      Given cyl â† cylinder()
-      When n â† local_normal_at(cyl, <point>)
-      Then n = <normal>
-
-      Examples:
-        | point           | normal           |
-        | point(1, 0, 0)  | vector(1, 0, 0)  |
-        | point(0, 5, -1) | vector(0, 0, -1) |
-        | point(0, -2, 1) | vector(0, 0, 1)  |
-        | point(-1, 1, 0) | vector(-1, 0, 0) |
-
     Scenario: The default minimum and maximum for a cylinder
       Given cyl â† cylinder()
       Then cyl.minimum = -infinity
