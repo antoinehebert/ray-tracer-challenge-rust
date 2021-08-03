@@ -11,10 +11,10 @@ use crate::{
 
 #[derive(Debug, PartialEq, Clone)]
 enum ShapeKind {
-    Sphere,   // The sphere is always centered at the world origin...
-    Plane,    // Plane is in xy, with the normal pointing in the positive y direction.
-    Cube,     // Centered at the world origin and going from -1 to 1.
-    Cylinder, // Radius of 1, extending to infinity in both +y and -y.
+    Sphere, // The sphere is always centered at the world origin...
+    Plane,  // Plane is in xy, with the normal pointing in the positive y direction.
+    Cube,   // Centered at the world origin and going from -1 to 1.
+    Cylinder { minimum: f64, maximum: f64 }, // Radius of 1, extending to infinity in both +y and -y.
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -65,7 +65,21 @@ impl Shape {
         Self {
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-            kind: ShapeKind::Cylinder,
+            kind: ShapeKind::Cylinder {
+                minimum: -f64::INFINITY,
+                maximum: f64::INFINITY,
+            },
+        }
+    }
+
+    pub fn constrained_cylinder(min: f64, max: f64) -> Self {
+        Self {
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+            kind: ShapeKind::Cylinder {
+                minimum: min,
+                maximum: max,
+            },
         }
     }
 
@@ -138,7 +152,7 @@ impl Shape {
                     result.push(Intersection::new(tmax, &self));
                 }
             }
-            ShapeKind::Cylinder => {
+            ShapeKind::Cylinder { minimum, maximum } => {
                 let a = local_ray.direction.x.powi(2) + local_ray.direction.z.powi(2);
 
                 if !is_almost_equal(a, 0.0) {
@@ -148,10 +162,24 @@ impl Shape {
 
                     let discriminant = b.powi(2) - 4.0 * a * c;
 
-                    if discriminant >= 0. {
+                    if discriminant >= 0.0 {
                         let sqrt = discriminant.sqrt();
-                        result.push(Intersection::new((-b - sqrt) / (2. * a), &self));
-                        result.push(Intersection::new((-b + sqrt) / (2. * a), &self));
+                        let mut t0 = (-b - sqrt) / (2. * a);
+                        let mut t1 = (-b + sqrt) / (2. * a);
+
+                        if t0 > t1 {
+                            swap(&mut t0, &mut t1);
+                        }
+
+                        let y0 = local_ray.origin.y + t0 * local_ray.direction.y;
+                        if minimum < y0 && y0 < maximum {
+                            result.push(Intersection::new(t0, &self));
+                        }
+
+                        let y1 = local_ray.origin.y + t1 * local_ray.direction.y;
+                        if minimum < y1 && y1 < maximum {
+                            result.push(Intersection::new(t1, &self));
+                        }
                     }
                 }
             }
@@ -185,7 +213,7 @@ impl Shape {
                     Tuple::vector(0.0, 0.0, local_point.z)
                 }
             }
-            ShapeKind::Cylinder => Tuple::vector(local_point.x, 0.0, local_point.z),
+            ShapeKind::Cylinder { .. } => Tuple::vector(local_point.x, 0.0, local_point.z),
         };
         assert!(local_normal.is_vector());
 
@@ -773,30 +801,78 @@ mod tests {
         );
     }
 
+    #[test]
+    fn the_default_minimum_and_maximum_for_a_cylinder() {
+        let cyl = Shape::cylinder();
+
+        if let ShapeKind::Cylinder { minimum, maximum } = cyl.kind {
+            assert_eq!(minimum, -f64::INFINITY);
+            assert_eq!(maximum, f64::INFINITY);
+        } else {
+            assert!(false);
+        }
+    }
+
+    fn internal_intersecting_a_constrained_cylinder(ray: Ray) -> usize {
+        let cyl = Shape::constrained_cylinder(1.0, 2.0);
+
+        let xs = cyl.intersect(&ray);
+        xs.len()
+    }
+
+    #[test]
+    fn intersecting_a_constrained_cylinder() {
+        // Ray shooting from within the cylinder, but going out the unclosed top.
+        assert_eq!(
+            internal_intersecting_a_constrained_cylinder(Ray::new(
+                Tuple::point(0.0, 1.5, 0.0),
+                Tuple::vector(0.1, 1.0, 0.0)
+            )),
+            0
+        );
+        // Ray passing over
+        assert_eq!(
+            internal_intersecting_a_constrained_cylinder(Ray::new(
+                Tuple::point(0.0, 3.0, -5.0),
+                Tuple::vector(0.0, 0.0, 1.0)
+            )),
+            0
+        );
+        // Ray passing under
+        assert_eq!(
+            internal_intersecting_a_constrained_cylinder(Ray::new(
+                Tuple::point(0.0, 0.0, -5.0),
+                Tuple::vector(0.0, 0.0, 1.0)
+            )),
+            0
+        );
+        // Ray on top
+        assert_eq!(
+            internal_intersecting_a_constrained_cylinder(Ray::new(
+                Tuple::point(0.0, 2.0, -5.0),
+                Tuple::vector(0.0, 0.0, 1.0)
+            )),
+            0
+        );
+        // Ray on bottom
+        assert_eq!(
+            internal_intersecting_a_constrained_cylinder(Ray::new(
+                Tuple::point(0.0, 1.0, -5.0),
+                Tuple::vector(0.0, 0.0, 1.0)
+            )),
+            0
+        );
+        // Ray in the middle
+        assert_eq!(
+            internal_intersecting_a_constrained_cylinder(Ray::new(
+                Tuple::point(0.0, 1.5, -2.0),
+                Tuple::vector(0.0, 0.0, 1.0)
+            )),
+            2
+        );
+    }
+
     /*
-    Scenario: The default minimum and maximum for a cylinder
-      Given cyl â† cylinder()
-      Then cyl.minimum = -infinity
-        And cyl.maximum = infinity
-
-    Scenario Outline: Intersecting a constrained cylinder
-      Given cyl â† cylinder()
-        And cyl.minimum â† 1
-        And cyl.maximum â† 2
-        And direction â† normalize(<direction>)
-        And r â† ray(<point>, direction)
-      When xs â† local_intersect(cyl, r)
-      Then xs.count = <count>
-
-      Examples:
-        |   | point             | direction         | count |
-        | 1 | point(0, 1.5, 0)  | vector(0.1, 1, 0) | 0     |
-        | 2 | point(0, 3, -5)   | vector(0, 0, 1)   | 0     |
-        | 3 | point(0, 0, -5)   | vector(0, 0, 1)   | 0     |
-        | 4 | point(0, 2, -5)   | vector(0, 0, 1)   | 0     |
-        | 5 | point(0, 1, -5)   | vector(0, 0, 1)   | 0     |
-        | 6 | point(0, 1.5, -2) | vector(0, 0, 1)   | 2     |
-
     Scenario: The default closed value for a cylinder
       Given cyl â† cylinder()
       Then cyl.closed = false
