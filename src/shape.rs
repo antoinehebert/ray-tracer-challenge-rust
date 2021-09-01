@@ -14,7 +14,11 @@ enum ShapeKind {
     Sphere, // The sphere is always centered at the world origin...
     Plane,  // Plane is in xy, with the normal pointing in the positive y direction.
     Cube,   // Centered at the world origin and going from -1 to 1.
-    Cylinder { minimum: f64, maximum: f64 }, // Radius of 1, extending to infinity in both +y and -y.
+    Cylinder {
+        minimum: f64,
+        maximum: f64,
+        capped: bool,
+    }, // Radius of 1, extending to infinity in both +y and -y.
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -61,24 +65,26 @@ impl Shape {
         }
     }
 
-    pub fn cylinder() -> Self {
+    pub fn infinite_cylinder() -> Self {
         Self {
             transform: Matrix::<4>::identity(),
             material: Material::new(),
             kind: ShapeKind::Cylinder {
                 minimum: -f64::INFINITY,
                 maximum: f64::INFINITY,
+                capped: false,
             },
         }
     }
 
-    pub fn constrained_cylinder(min: f64, max: f64) -> Self {
+    pub fn cylinder(min: f64, max: f64, capped: bool) -> Self {
         Self {
             transform: Matrix::<4>::identity(),
             material: Material::new(),
             kind: ShapeKind::Cylinder {
                 minimum: min,
                 maximum: max,
+                capped,
             },
         }
     }
@@ -152,9 +158,14 @@ impl Shape {
                     result.push(Intersection::new(tmax, &self));
                 }
             }
-            ShapeKind::Cylinder { minimum, maximum } => {
+            ShapeKind::Cylinder {
+                minimum,
+                maximum,
+                capped,
+            } => {
                 let a = local_ray.direction.x.powi(2) + local_ray.direction.z.powi(2);
 
+                // Intersect walls
                 if !is_almost_equal(a, 0.0) {
                     let b = 2.0 * local_ray.origin.x * local_ray.direction.x
                         + 2.0 * local_ray.origin.z * local_ray.direction.z;
@@ -182,10 +193,36 @@ impl Shape {
                         }
                     }
                 }
+
+                // Intersect caps
+                if capped && !is_almost_equal(local_ray.direction.y, 0.0) {
+                    let t = (minimum - local_ray.origin.y) / local_ray.direction.y;
+                    // Check for an intersection with the lower end cap by intersecting​ the ray with the plane at
+                    // y=cyl.minimum​.
+                    if self.check_cap(&local_ray, t) {
+                        result.push(Intersection::new(t, &self));
+                    }
+
+                    let t = (maximum - local_ray.origin.y) / local_ray.direction.y;
+                    // Check for an intersection with the upper end cap by intersecting​ the ray with the plane at
+                    // y=cyl.maximum.
+                    if self.check_cap(&local_ray, t) {
+                        result.push(Intersection::new(t, &self));
+                    }
+                }
             }
         };
 
         result
+    }
+
+    // A helper function to reduce duplication.​ Checks to see if the intersection at `t` is within a radius​ of 1 (the
+    // radius of your cylinders) from the y axis.​
+    fn check_cap(&self, ray: &Ray, t: f64) -> bool {
+        let x = ray.origin.x + t * ray.direction.x;
+        let z = ray.origin.z + t * ray.direction.z;
+
+        x.powi(2) + z.powi(2) <= 1.0
     }
 
     pub fn normal_at(&self, world_point: &Tuple) -> Tuple {
@@ -213,7 +250,20 @@ impl Shape {
                     Tuple::vector(0.0, 0.0, local_point.z)
                 }
             }
-            ShapeKind::Cylinder { .. } => Tuple::vector(local_point.x, 0.0, local_point.z),
+            ShapeKind::Cylinder {
+                minimum, maximum, ..
+            } => {
+                // Square of the distance from the y axis.
+                let dist = local_point.x.powi(2) + local_point.z.powi(2);
+
+                if dist < 1.0 && local_point.y >= maximum - EPSILON {
+                    Tuple::vector(0.0, 1.0, 0.0)
+                } else if dist < 1.0 && local_point.y <= minimum + EPSILON {
+                    Tuple::vector(0.0, -1.0, 0.0)
+                } else {
+                    Tuple::vector(local_point.x, 0.0, local_point.z)
+                }
+            }
         };
         assert!(local_normal.is_vector());
 
@@ -735,7 +785,7 @@ mod tests {
         assert!(direction.is_vector());
 
         let r = Ray::new(origin, direction.normalize());
-        let cyl = Shape::cylinder();
+        let cyl = Shape::infinite_cylinder();
 
         let xs = cyl.intersect(&r);
         assert_eq!(xs.len(), 0);
@@ -749,7 +799,7 @@ mod tests {
     }
 
     fn internal_a_ray_strikes_a_cylinder(origin: Tuple, direction: Tuple, t0: f64, t1: f64) {
-        let cyl = Shape::cylinder();
+        let cyl = Shape::infinite_cylinder();
         let ray = Ray::new(origin, direction.normalize());
         let xs = cyl.intersect(&ray);
 
@@ -782,7 +832,7 @@ mod tests {
 
     #[test]
     fn normal_vector_on_a_cylinder() {
-        let cyl = Shape::cylinder();
+        let cyl = Shape::infinite_cylinder();
         assert_eq!(
             cyl.normal_at(&Tuple::point(1.0, 0.0, 0.0)),
             Tuple::vector(1.0, 0.0, 0.0)
@@ -803,9 +853,12 @@ mod tests {
 
     #[test]
     fn the_default_minimum_and_maximum_for_a_cylinder() {
-        let cyl = Shape::cylinder();
+        let cyl = Shape::infinite_cylinder();
 
-        if let ShapeKind::Cylinder { minimum, maximum } = cyl.kind {
+        if let ShapeKind::Cylinder {
+            minimum, maximum, ..
+        } = cyl.kind
+        {
             assert_eq!(minimum, -f64::INFINITY);
             assert_eq!(maximum, f64::INFINITY);
         } else {
@@ -814,7 +867,7 @@ mod tests {
     }
 
     fn internal_intersecting_a_constrained_cylinder(ray: Ray) -> usize {
-        let cyl = Shape::constrained_cylinder(1.0, 2.0);
+        let cyl = Shape::cylinder(1.0, 2.0, false);
 
         let xs = cyl.intersect(&ray);
         xs.len()
@@ -872,45 +925,73 @@ mod tests {
         );
     }
 
-    /*
-    Scenario: The default closed value for a cylinder
-      Given cyl â† cylinder()
-      Then cyl.closed = false
+    #[test]
+    fn the_default_closed_value_for_a_cylinder() {
+        let cyl = Shape::infinite_cylinder();
 
-    Scenario Outline: Intersecting the caps of a closed cylinder
-      Given cyl â† cylinder()
-        And cyl.minimum â† 1
-        And cyl.maximum â† 2
-        And cyl.closed â† true
-        And direction â† normalize(<direction>)
-        And r â† ray(<point>, direction)
-      When xs â† local_intersect(cyl, r)
-      Then xs.count = <count>
+        if let ShapeKind::Cylinder { capped, .. } = cyl.kind {
+            assert!(!capped);
+        } else {
+            assert!(false);
+        }
+    }
 
-      Examples:
-        |   | point            | direction        | count |
-        | 1 | point(0, 3, 0)   | vector(0, -1, 0) | 2     |
-        | 2 | point(0, 3, -2)  | vector(0, -1, 2) | 2     |
-        | 3 | point(0, 4, -2)  | vector(0, -1, 1) | 2     | # corner case
-        | 4 | point(0, 0, -2)  | vector(0, 1, 2)  | 2     |
-        | 5 | point(0, -1, -2) | vector(0, 1, 1)  | 2     | # corner case
+    fn internal_intersecting_the_caps_of_a_closed_cylinder(
+        point: Tuple,
+        direction: Tuple,
+        count: usize,
+    ) {
+        let cyl = Shape::cylinder(1.0, 2.0, true);
 
-    Scenario Outline: The normal vector on a cylinder's end caps
-      Given cyl â† cylinder()
-        And cyl.minimum â† 1
-        And cyl.maximum â† 2
-        And cyl.closed â† true
-      When n â† local_normal_at(cyl, <point>)
-      Then n = <normal>
+        let r = Ray::new(point, direction.normalize());
+        assert_eq!(cyl.intersect(&r).len(), count);
+    }
 
-      Examples:
-        | point            | normal           |
-        | point(0, 1, 0)   | vector(0, -1, 0) |
-        | point(0.5, 1, 0) | vector(0, -1, 0) |
-        | point(0, 1, 0.5) | vector(0, -1, 0) |
-        | point(0, 2, 0)   | vector(0, 1, 0)  |
-        | point(0.5, 2, 0) | vector(0, 1, 0)  |
-        | point(0, 2, 0.5) | vector(0, 1, 0)  |
+    #[test]
+    fn intersecting_the_caps_of_a_closed_cylinder() {
+        internal_intersecting_the_caps_of_a_closed_cylinder(
+            Tuple::point(0.0, 3.0, 0.0),
+            Tuple::vector(0.0, -1.0, 0.0),
+            2,
+        );
+        internal_intersecting_the_caps_of_a_closed_cylinder(
+            Tuple::point(0.0, 3.0, -2.0),
+            Tuple::vector(0.0, -1.0, 2.0),
+            2,
+        );
+        // corner case
+        internal_intersecting_the_caps_of_a_closed_cylinder(
+            Tuple::point(0.0, 4.0, -2.0),
+            Tuple::vector(0.0, -1.0, 1.0),
+            2,
+        );
+        internal_intersecting_the_caps_of_a_closed_cylinder(
+            Tuple::point(0.0, 0.0, -2.0),
+            Tuple::vector(0.0, 1.0, 2.0),
+            2,
+        );
+        // corner case
+        internal_intersecting_the_caps_of_a_closed_cylinder(
+            Tuple::point(0.0, -1.0, -2.0),
+            Tuple::vector(0.0, 1.0, 1.0),
+            2,
+        );
+    }
 
-    */
+    #[test]
+    fn the_normal_vector_on_a_cylinder_s_end_caps() {
+        let test_it = |point: Tuple, normal: Tuple| {
+            let cyl = Shape::cylinder(1.0, 2.0, true);
+            let n = cyl.normal_at(&point);
+
+            assert_eq!(n, normal);
+        };
+
+        test_it(Tuple::point(0.0, 1.0, 0.0), Tuple::vector(0.0, -1.0, 0.0));
+        test_it(Tuple::point(0.5, 1.0, 0.0), Tuple::vector(0.0, -1.0, 0.0));
+        test_it(Tuple::point(0.0, 1.0, 0.5), Tuple::vector(0.0, -1.0, 0.0));
+        test_it(Tuple::point(0.0, 2.0, 0.0), Tuple::vector(0.0, 1.0, 0.0));
+        test_it(Tuple::point(0.5, 2.0, 0.0), Tuple::vector(0.0, 1.0, 0.0));
+        test_it(Tuple::point(0.0, 2.0, 0.5), Tuple::vector(0.0, 1.0, 0.0));
+    }
 }

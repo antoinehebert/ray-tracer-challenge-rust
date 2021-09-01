@@ -1,5 +1,7 @@
 #![allow(dead_code)] // Allow dead code while experimenting...
 
+// TODO: use clippy?
+
 mod camera;
 mod canvas;
 mod color;
