@@ -51,6 +51,11 @@ impl Tuple {
         assert!(self.is_vector());
 
         let magnitude = self.magnitude();
+        if magnitude == 0.0 {
+            // Not sure this the right solution, but I want to avoid NaN when dividing by zero.
+            return Self::zero();
+        }
+
         // .w really?!
         Self::new(
             self.x / magnitude,

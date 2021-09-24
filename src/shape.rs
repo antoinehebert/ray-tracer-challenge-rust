@@ -18,7 +18,12 @@ enum ShapeKind {
         minimum: f64,
         maximum: f64,
         capped: bool,
-    }, // Radius of 1, extending to infinity in both +y and -y.
+    }, // Radius of 1, extending to infinity in both +y and -y unless it's capped.
+    Cone {
+        minimum: f64,
+        maximum: f64,
+        capped: bool,
+    }, // Radius of 1, extending to infinity in both +y and -y unless it's capped.
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -82,6 +87,30 @@ impl Shape {
             transform: Matrix::<4>::identity(),
             material: Material::new(),
             kind: ShapeKind::Cylinder {
+                minimum: min,
+                maximum: max,
+                capped,
+            },
+        }
+    }
+
+    pub fn infinite_cone() -> Self {
+        Self {
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+            kind: ShapeKind::Cone {
+                minimum: -f64::INFINITY,
+                maximum: f64::INFINITY,
+                capped: false,
+            },
+        }
+    }
+
+    pub fn cone(min: f64, max: f64, capped: bool) -> Self {
+        Self {
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+            kind: ShapeKind::Cone {
                 minimum: min,
                 maximum: max,
                 capped,
@@ -159,9 +188,7 @@ impl Shape {
                 }
             }
             ShapeKind::Cylinder {
-                minimum,
-                maximum,
-                capped,
+                minimum, maximum, ..
             } => {
                 let a = local_ray.direction.x.powi(2) + local_ray.direction.z.powi(2);
 
@@ -194,35 +221,104 @@ impl Shape {
                     }
                 }
 
-                // Intersect caps
-                if capped && !is_almost_equal(local_ray.direction.y, 0.0) {
-                    let t = (minimum - local_ray.origin.y) / local_ray.direction.y;
-                    // Check for an intersection with the lower end cap by intersecting​ the ray with the plane at
-                    // y=cyl.minimum​.
-                    if self.check_cap(&local_ray, t) {
+                self.intersect_caps(&mut result, &local_ray);
+            }
+            ShapeKind::Cone {
+                minimum, maximum, ..
+            } => {
+                let a = local_ray.direction.x.powi(2) - local_ray.direction.y.powi(2)
+                    + local_ray.direction.z.powi(2);
+                let b = 2.0 * local_ray.origin.x * local_ray.direction.x
+                    - 2.0 * local_ray.origin.y * local_ray.direction.y
+                    + 2.0 * local_ray.origin.z * local_ray.direction.z;
+                let c = local_ray.origin.x.powi(2) - local_ray.origin.y.powi(2)
+                    + local_ray.origin.z.powi(2);
+
+                // Intersect walls
+                if is_almost_equal(a, 0.0) {
+                    if !is_almost_equal(b, 0.0) {
+                        let t = -c / (2.0 * b);
                         result.push(Intersection::new(t, &self));
                     }
+                } else {
+                    let discriminant = b.powi(2) - 4.0 * a * c;
 
-                    let t = (maximum - local_ray.origin.y) / local_ray.direction.y;
-                    // Check for an intersection with the upper end cap by intersecting​ the ray with the plane at
-                    // y=cyl.maximum.
-                    if self.check_cap(&local_ray, t) {
-                        result.push(Intersection::new(t, &self));
+                    if discriminant >= 0.0 {
+                        let sqrt = discriminant.sqrt();
+                        let mut t0 = (-b - sqrt) / (2. * a);
+                        let mut t1 = (-b + sqrt) / (2. * a);
+
+                        if t0 > t1 {
+                            swap(&mut t0, &mut t1);
+                        }
+
+                        let y0 = local_ray.origin.y + t0 * local_ray.direction.y;
+                        if minimum < y0 && y0 < maximum {
+                            result.push(Intersection::new(t0, &self));
+                        }
+
+                        let y1 = local_ray.origin.y + t1 * local_ray.direction.y;
+                        if minimum < y1 && y1 < maximum {
+                            result.push(Intersection::new(t1, &self));
+                        }
                     }
                 }
+
+                self.intersect_caps(&mut result, &local_ray);
             }
         };
 
         result
     }
 
-    // A helper function to reduce duplication.​ Checks to see if the intersection at `t` is within a radius​ of 1 (the
-    // radius of your cylinders) from the y axis.​
+    fn intersect_caps<'a>(&'a self, intersections: &mut Vec<Intersection<'a>>, local_ray: &Ray) {
+        let (maximum, minimum, capped) = match self.kind {
+            ShapeKind::Cylinder {
+                maximum,
+                minimum,
+                capped,
+            } => (maximum, minimum, capped),
+            ShapeKind::Cone {
+                maximum,
+                minimum,
+                capped,
+            } => (maximum, minimum, capped),
+            _ => panic!("Expected a cylinder or a cone."),
+        };
+
+        if !capped {
+            return;
+        }
+
+        if is_almost_equal(local_ray.direction.y, 0.0) {
+            return;
+        }
+
+        let t = (minimum - local_ray.origin.y) / local_ray.direction.y;
+        // Check for an intersection with the lower end cap by intersecting​ the ray with the plane at
+        // y=cyl.minimum​.
+        if self.check_cap(&local_ray, t) {
+            intersections.push(Intersection::new(t, &self));
+        }
+
+        let t = (maximum - local_ray.origin.y) / local_ray.direction.y;
+        // Check for an intersection with the upper end cap by intersecting​ the ray with the plane at
+        // y=cyl.maximum.
+        if self.check_cap(&local_ray, t) {
+            intersections.push(Intersection::new(t, &self));
+        }
+    }
+
+    // A helper function to reduce duplication.​ Checks to see if the intersection at `t` is within a radius​ of y (the
+    // radius of your cylinders/cone) from the y axis.​
+    //
+    // Note: y is always 1 for cylinders.
     fn check_cap(&self, ray: &Ray, t: f64) -> bool {
         let x = ray.origin.x + t * ray.direction.x;
+        let y = ray.origin.y + t * ray.direction.y;
         let z = ray.origin.z + t * ray.direction.z;
 
-        x.powi(2) + z.powi(2) <= 1.0
+        x.powi(2) + z.powi(2) <= y.abs()
     }
 
     pub fn normal_at(&self, world_point: &Tuple) -> Tuple {
@@ -263,6 +359,13 @@ impl Shape {
                 } else {
                     Tuple::vector(local_point.x, 0.0, local_point.z)
                 }
+            }
+            ShapeKind::Cone { .. } => {
+                let mut y = (local_point.x.powi(2) + local_point.z.powi(2)).sqrt();
+                if local_point.y > 0.0 {
+                    y = -y;
+                }
+                Tuple::vector(local_point.x, y, local_point.z)
             }
         };
         assert!(local_normal.is_vector());
@@ -993,5 +1096,96 @@ mod tests {
         test_it(Tuple::point(0.0, 2.0, 0.0), Tuple::vector(0.0, 1.0, 0.0));
         test_it(Tuple::point(0.5, 2.0, 0.0), Tuple::vector(0.0, 1.0, 0.0));
         test_it(Tuple::point(0.0, 2.0, 0.5), Tuple::vector(0.0, 1.0, 0.0));
+    }
+
+    //
+    // Feature: Cones
+    //
+
+    #[test]
+    fn intersecting_a_cone_with_a_ray() {
+        let test_it = |origin: Tuple, direction: Tuple, t0: f64, t1: f64| {
+            let shape = Shape::infinite_cone();
+            let direction = direction.normalize();
+            let ray = Ray::new(origin, direction);
+            let xs = shape.intersect(&ray);
+
+            assert_eq!(xs.len(), 2);
+            assert_almost_eq!(xs[0].t, t0);
+            assert_almost_eq!(xs[1].t, t1);
+        };
+
+        test_it(
+            Tuple::point(0.0, 0.0, -5.0),
+            Tuple::vector(0.0, 0.0, 1.0),
+            5.0,
+            5.0,
+        );
+        test_it(
+            Tuple::point(0.0, 0.0, -5.0),
+            Tuple::vector(1.0, 1.0, 1.0),
+            8.66025,
+            8.66025,
+        );
+        test_it(
+            Tuple::point(1.0, 1.0, -5.0),
+            Tuple::vector(-0.5, -1.0, 1.0),
+            4.55006,
+            49.44994,
+        );
+    }
+
+    #[test]
+    fn intersecting_a_cone_with_a_ray_parallel_to_one_of_its_halves() {
+        let shape = Shape::infinite_cone();
+        let direction = Tuple::vector(0.0, 1.0, 1.0).normalize();
+        let r = Ray::new(Tuple::point(0.0, 0.0, -1.0), direction);
+        let xs = shape.intersect(&r);
+
+        assert_eq!(xs.len(), 1);
+        assert_almost_eq!(xs[0].t, 0.35355);
+    }
+
+    #[test]
+    fn intersecting_a_cone_s_end_caps() {
+        let test_it = |origin: Tuple, direction: Tuple, count: usize| {
+            let shape = Shape::cone(-0.5, 0.5, true);
+            let direction = direction.normalize();
+            let r = Ray::new(origin, direction);
+            let xs = shape.intersect(&r);
+            assert_eq!(xs.len(), count);
+        };
+
+        test_it(
+            Tuple::point(0.0, 0.0, -5.0),
+            Tuple::vector(0.0, 1.0, 0.0),
+            0,
+        );
+        test_it(
+            Tuple::point(0.0, 0.0, -0.25),
+            Tuple::vector(0.0, 1.0, 1.0),
+            2,
+        );
+        test_it(
+            Tuple::point(0.0, 0.0, -0.25),
+            Tuple::vector(0.0, 1.0, 0.0),
+            4,
+        );
+    }
+
+    #[test]
+    fn computing_the_normal_vector_on_a_cone() {
+        let test_it = |point: Tuple, normal: Tuple| {
+            let shape = Shape::infinite_cone();
+            let n = shape.normal_at(&point);
+            assert_eq!(n, normal.normalize()); // Normalize, because in the book it's testing local_normal_at.
+        };
+
+        test_it(Tuple::point(0.0, 0.0, 0.0), Tuple::vector(0.0, 0.0, 0.0));
+        test_it(
+            Tuple::point(1.0, 1.0, 1.0),
+            Tuple::vector(1.0, -(2.0 as f64).sqrt(), 1.0),
+        );
+        test_it(Tuple::point(-1.0, -1.0, 0.0), Tuple::vector(-1.0, 1.0, 0.0));
     }
 }
