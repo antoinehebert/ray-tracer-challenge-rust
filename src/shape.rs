@@ -1,6 +1,8 @@
 use std::mem::swap;
+use uuid::Uuid;
 
 use crate::{
+    group::Group,
     intersection::{Intersection, Intersections},
     material::Material,
     matrix::Matrix,
@@ -26,100 +28,29 @@ enum ShapeKind {
     }, // Radius of 1, extending to infinity in both +y and -y unless it's capped.
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Shape {
-    pub transform: Matrix<4>,
-    pub material: Material,
-    kind: ShapeKind,
+// TODO: Figure out a better name for this, Drawable, Volume, ???
+pub trait Shapeable {
+    fn parent(&self) -> Option<&Group>;
+    fn intersect(&self, world_ray: &Ray) -> Intersections;
+    fn normal_at(&self, world_point: &Tuple) -> Tuple;
 }
 
-impl Shape {
-    pub fn sphere() -> Self {
-        Shape {
-            transform: Matrix::<4>::identity(),
-            material: Material::new(),
-            kind: ShapeKind::Sphere,
-        }
-    }
+#[derive(Debug, PartialEq, Clone)]
+pub struct Shape {
+    kind: ShapeKind,
 
-    pub fn glass_sphere() -> Self {
-        let mut material = Material::new();
-        material.transparency = 1.0;
-        material.refractive_index = 1.5;
+    pub parent_id: Option<Uuid>,
+    pub transform: Matrix<4>,
+    pub material: Material,
+}
 
-        Self {
-            transform: Matrix::<4>::identity(),
-            material: material,
-            kind: ShapeKind::Sphere,
-        }
-    }
-
-    pub fn plane() -> Self {
-        Self {
-            transform: Matrix::<4>::identity(),
-            material: Material::new(),
-            kind: ShapeKind::Plane,
-        }
-    }
-
-    pub fn cube() -> Self {
-        Self {
-            transform: Matrix::<4>::identity(),
-            material: Material::new(),
-            kind: ShapeKind::Cube,
-        }
-    }
-
-    pub fn infinite_cylinder() -> Self {
-        Self {
-            transform: Matrix::<4>::identity(),
-            material: Material::new(),
-            kind: ShapeKind::Cylinder {
-                minimum: -f64::INFINITY,
-                maximum: f64::INFINITY,
-                capped: false,
-            },
-        }
-    }
-
-    pub fn cylinder(min: f64, max: f64, capped: bool) -> Self {
-        Self {
-            transform: Matrix::<4>::identity(),
-            material: Material::new(),
-            kind: ShapeKind::Cylinder {
-                minimum: min,
-                maximum: max,
-                capped,
-            },
-        }
-    }
-
-    pub fn infinite_cone() -> Self {
-        Self {
-            transform: Matrix::<4>::identity(),
-            material: Material::new(),
-            kind: ShapeKind::Cone {
-                minimum: -f64::INFINITY,
-                maximum: f64::INFINITY,
-                capped: false,
-            },
-        }
-    }
-
-    pub fn cone(min: f64, max: f64, capped: bool) -> Self {
-        Self {
-            transform: Matrix::<4>::identity(),
-            material: Material::new(),
-            kind: ShapeKind::Cone {
-                minimum: min,
-                maximum: max,
-                capped,
-            },
-        }
+impl Shapeable for Shape {
+    fn parent(&self) -> Option<&Group> {
+        None
     }
 
     // Returns intersection points (time) along `ray`.
-    pub fn intersect(&self, world_ray: &Ray) -> Intersections {
+    fn intersect(&self, world_ray: &Ray) -> Intersections {
         let local_ray = world_ray.transform(
             self.transform
                 .inverse()
@@ -271,57 +202,7 @@ impl Shape {
         result
     }
 
-    fn intersect_caps<'a>(&'a self, intersections: &mut Vec<Intersection<'a>>, local_ray: &Ray) {
-        let (maximum, minimum, capped) = match self.kind {
-            ShapeKind::Cylinder {
-                maximum,
-                minimum,
-                capped,
-            } => (maximum, minimum, capped),
-            ShapeKind::Cone {
-                maximum,
-                minimum,
-                capped,
-            } => (maximum, minimum, capped),
-            _ => panic!("Expected a cylinder or a cone."),
-        };
-
-        if !capped {
-            return;
-        }
-
-        if is_almost_equal(local_ray.direction.y, 0.0) {
-            return;
-        }
-
-        let t = (minimum - local_ray.origin.y) / local_ray.direction.y;
-        // Check for an intersection with the lower end cap by intersecting​ the ray with the plane at
-        // y=cyl.minimum​.
-        if self.check_cap(&local_ray, t) {
-            intersections.push(Intersection::new(t, &self));
-        }
-
-        let t = (maximum - local_ray.origin.y) / local_ray.direction.y;
-        // Check for an intersection with the upper end cap by intersecting​ the ray with the plane at
-        // y=cyl.maximum.
-        if self.check_cap(&local_ray, t) {
-            intersections.push(Intersection::new(t, &self));
-        }
-    }
-
-    // A helper function to reduce duplication.​ Checks to see if the intersection at `t` is within a radius​ of y (the
-    // radius of your cylinders/cone) from the y axis.​
-    //
-    // Note: y is always 1 for cylinders.
-    fn check_cap(&self, ray: &Ray, t: f64) -> bool {
-        let x = ray.origin.x + t * ray.direction.x;
-        let y = ray.origin.y + t * ray.direction.y;
-        let z = ray.origin.z + t * ray.direction.z;
-
-        x.powi(2) + z.powi(2) <= y.abs()
-    }
-
-    pub fn normal_at(&self, world_point: &Tuple) -> Tuple {
+    fn normal_at(&self, world_point: &Tuple) -> Tuple {
         let shape_inverted_transform = self
             .transform
             .inverse()
@@ -375,6 +256,150 @@ impl Shape {
         world_normal.w = 0.;
 
         world_normal.normalize()
+    }
+}
+
+impl Shape {
+    pub fn sphere() -> Self {
+        Self {
+            kind: ShapeKind::Sphere,
+            parent_id: None,
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }
+    }
+
+    pub fn glass_sphere() -> Self {
+        let mut material = Material::new();
+        material.transparency = 1.0;
+        material.refractive_index = 1.5;
+
+        Self {
+            kind: ShapeKind::Sphere,
+            parent_id: None,
+            transform: Matrix::<4>::identity(),
+            material: material,
+        }
+    }
+
+    pub fn plane() -> Self {
+        Self {
+            kind: ShapeKind::Plane,
+            parent_id: None,
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }
+    }
+
+    pub fn cube() -> Self {
+        Self {
+            kind: ShapeKind::Cube,
+            parent_id: None,
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }
+    }
+
+    pub fn infinite_cylinder() -> Self {
+        Self {
+            kind: ShapeKind::Cylinder {
+                minimum: -f64::INFINITY,
+                maximum: f64::INFINITY,
+                capped: false,
+            },
+            parent_id: None,
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }
+    }
+
+    pub fn cylinder(min: f64, max: f64, capped: bool) -> Self {
+        Self {
+            kind: ShapeKind::Cylinder {
+                minimum: min,
+                maximum: max,
+                capped,
+            },
+            parent_id: None,
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }
+    }
+
+    pub fn infinite_cone() -> Self {
+        Self {
+            kind: ShapeKind::Cone {
+                minimum: -f64::INFINITY,
+                maximum: f64::INFINITY,
+                capped: false,
+            },
+            parent_id: None,
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }
+    }
+
+    pub fn cone(min: f64, max: f64, capped: bool) -> Self {
+        Self {
+            kind: ShapeKind::Cone {
+                minimum: min,
+                maximum: max,
+                capped,
+            },
+            parent_id: None,
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }
+    }
+
+    fn intersect_caps<'b>(&'b self, intersections: &mut Vec<Intersection<'b>>, local_ray: &Ray) {
+        let (maximum, minimum, capped) = match self.kind {
+            ShapeKind::Cylinder {
+                maximum,
+                minimum,
+                capped,
+            } => (maximum, minimum, capped),
+            ShapeKind::Cone {
+                maximum,
+                minimum,
+                capped,
+            } => (maximum, minimum, capped),
+            _ => panic!("Expected a cylinder or a cone."),
+        };
+
+        if !capped {
+            return;
+        }
+
+        if is_almost_equal(local_ray.direction.y, 0.0) {
+            return;
+        }
+
+        let t = (minimum - local_ray.origin.y) / local_ray.direction.y;
+        // Check for an intersection with the lower end cap by intersecting​ the ray with the plane at
+        // y=cyl.minimum​.
+        if self.check_cap(&local_ray, t) {
+            intersections.push(Intersection::new(t, &self));
+        }
+
+        let t = (maximum - local_ray.origin.y) / local_ray.direction.y;
+        // Check for an intersection with the upper end cap by intersecting​ the ray with the plane at
+        // y=cyl.maximum.
+        if self.check_cap(&local_ray, t) {
+            intersections.push(Intersection::new(t, &self));
+        }
+    }
+
+    // A helper function to reduce duplication.​ Checks to see if the intersection at `t` is within a radius​ of y (the
+    // radius of your cylinders/cone) from the y axis.​
+    //
+    // Note: y is always 1 for cylinders.
+    fn check_cap(&self, ray: &Ray, t: f64) -> bool {
+        let x = ray.origin.x + t * ray.direction.x;
+        let y = ray.origin.y + t * ray.direction.y;
+        let z = ray.origin.z + t * ray.direction.z;
+
+        x.powi(2) + z.powi(2) <= y.abs()
     }
 }
 
@@ -651,9 +676,11 @@ mod tests {
     // Shape
     //
 
-    // Scenario: A shape has a parent attribute
-    //   Given s â† test_shape()
-    //   Then s.parent is nothing
+    #[test]
+    fn a_shape_has_a_parent_attribute() {
+        let s = Shape::sphere();
+        assert!(s.parent().is_none());
+    }
 
     // Scenario: Converting a point from world to object space
     //   Given g1 â† group()

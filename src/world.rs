@@ -3,7 +3,7 @@ use crate::{
     intersection::*,
     light::Light,
     ray::Ray,
-    shape::Shape,
+    shape::{Shape, Shapeable},
     transformations::scaling,
     tuple::Tuple,
 };

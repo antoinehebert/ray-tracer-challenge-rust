@@ -1,5 +1,5 @@
 use crate::ray::Ray;
-use crate::shape::Shape;
+use crate::shape::{Shape, Shapeable};
 use crate::tuple::Tuple;
 use crate::utils::*;
 
