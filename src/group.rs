@@ -42,7 +42,7 @@ impl Shapeable for Group {
     }
 
     fn intersect(&self, world_ray: &Ray) -> Intersections {
-        // TODO: DRY: This is what #local_intersect should do in the book.
+        // TODO: DRY: Cut and pasted from Shape, this is what #local_intersect should do in the book.
         let local_ray = world_ray.transform(
             self.transform
                 .inverse()
