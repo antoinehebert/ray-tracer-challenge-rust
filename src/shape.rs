@@ -1,14 +1,15 @@
 use std::mem::swap;
+
 use uuid::Uuid;
 
 use crate::{
-    group::Group,
     intersection::{Intersection, Intersections},
     material::Material,
     matrix::Matrix,
     ray::Ray,
     tuple::Tuple,
     utils::{is_almost_equal, EPSILON},
+    world::World,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -26,15 +27,11 @@ enum ShapeKind {
         maximum: f64,
         capped: bool,
     }, // Radius of 1, extending to infinity in both +y and -y unless it's capped.
+    Group {
+        uuid: Uuid,
+        shapes: Vec<Shape>,
+    },
 }
-
-// TODO: Figure out a better name for this, Drawable, Volume, ???
-pub trait Shapeable {
-    fn parent(&self) -> Option<&Group>;
-    fn intersect(&self, world_ray: &Ray) -> Intersections;
-    fn normal_at(&self, world_point: &Tuple) -> Tuple;
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct Shape {
     kind: ShapeKind,
@@ -44,13 +41,9 @@ pub struct Shape {
     pub material: Material,
 }
 
-impl Shapeable for Shape {
-    fn parent(&self) -> Option<&Group> {
-        None
-    }
-
+impl Shape {
     // Returns intersection points (time) along `ray`.
-    fn intersect(&self, world_ray: &Ray) -> Intersections {
+    pub fn intersect(&self, world_ray: &Ray) -> Intersections {
         let local_ray = world_ray.transform(
             self.transform
                 .inverse()
@@ -58,7 +51,8 @@ impl Shapeable for Shape {
         );
 
         let mut result = Vec::new();
-        match self.kind {
+
+        match &self.kind {
             ShapeKind::Sphere => {
                 // The sphere is always centered at the world origin...
                 let sphere_to_ray = local_ray.origin - Tuple::point(0., 0., 0.);
@@ -141,12 +135,12 @@ impl Shapeable for Shape {
                         }
 
                         let y0 = local_ray.origin.y + t0 * local_ray.direction.y;
-                        if minimum < y0 && y0 < maximum {
+                        if *minimum < y0 && y0 < *maximum {
                             result.push(Intersection::new(t0, &self));
                         }
 
                         let y1 = local_ray.origin.y + t1 * local_ray.direction.y;
-                        if minimum < y1 && y1 < maximum {
+                        if *minimum < y1 && y1 < *maximum {
                             result.push(Intersection::new(t1, &self));
                         }
                     }
@@ -184,12 +178,12 @@ impl Shapeable for Shape {
                         }
 
                         let y0 = local_ray.origin.y + t0 * local_ray.direction.y;
-                        if minimum < y0 && y0 < maximum {
+                        if *minimum < y0 && y0 < *maximum {
                             result.push(Intersection::new(t0, &self));
                         }
 
                         let y1 = local_ray.origin.y + t1 * local_ray.direction.y;
-                        if minimum < y1 && y1 < maximum {
+                        if *minimum < y1 && y1 < *maximum {
                             result.push(Intersection::new(t1, &self));
                         }
                     }
@@ -197,19 +191,25 @@ impl Shapeable for Shape {
 
                 self.intersect_caps(&mut result, &local_ray);
             }
+            ShapeKind::Group { shapes, .. } => {
+                let mut shape_results: Intersections = shapes
+                    .into_iter()
+                    .flat_map(|shape| shape.intersect(&local_ray))
+                    .collect();
+                shape_results
+                    .sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Equal));
+
+                result.append(&mut shape_results);
+            }
         };
 
         result
     }
 
-    fn normal_at(&self, world_point: &Tuple) -> Tuple {
-        let shape_inverted_transform = self
-            .transform
-            .inverse()
-            .expect("Transform should be invertible");
-        let local_point = shape_inverted_transform * *world_point;
+    pub fn normal_at(&self, world_point: &Tuple, world: Option<&World>) -> Tuple {
+        let local_point = world_to_object(self, world_point, world);
 
-        let local_normal = match self.kind {
+        let local_normal = match &self.kind {
             ShapeKind::Sphere => local_point - Tuple::point(0.0, 0.0, 0.0),
             ShapeKind::Plane => Tuple::vector(0.0, 1.0, 0.0),
             ShapeKind::Cube => {
@@ -248,18 +248,19 @@ impl Shapeable for Shape {
                 }
                 Tuple::vector(local_point.x, y, local_point.z)
             }
+            ShapeKind::Group { .. } => {
+                unreachable!();
+            }
         };
         assert!(local_normal.is_vector());
 
-        let mut world_normal = shape_inverted_transform.transpose() * local_normal;
+        let mut world_normal = normal_to_world(self, &local_normal, world);
         // Hack: Instead of removing any translation by taking a 3x3 submatrix of the transform, we just set w to 0.
         world_normal.w = 0.;
 
         world_normal.normalize()
     }
-}
 
-impl Shape {
     pub fn sphere() -> Self {
         Self {
             kind: ShapeKind::Sphere,
@@ -352,6 +353,56 @@ impl Shape {
         }
     }
 
+    pub fn group() -> Self {
+        Self {
+            kind: ShapeKind::Group {
+                shapes: vec![],
+                uuid: Uuid::new_v4(),
+            },
+            parent_id: None,
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }
+    }
+
+    // Maybe passing shapes in the constructor would work too?
+    pub fn add_child(&mut self, mut shape: Shape) {
+        match &mut self.kind {
+            ShapeKind::Group { shapes, uuid } => {
+                shape.parent_id = Some(uuid.clone());
+                shapes.push(shape);
+            }
+            _ => panic!(),
+        }
+    }
+
+    pub fn get_shape_by_id(&self, id: Uuid) -> Option<&Self> {
+        match &self.kind {
+            ShapeKind::Group { uuid, shapes } => {
+                if id == *uuid {
+                    return Some(self);
+                }
+
+                for shape in shapes {
+                    match shape.get_shape_by_id(id) {
+                        Some(shape) => return Some(shape),
+                        None => (),
+                    }
+                }
+            }
+            _ => (),
+        }
+
+        None
+    }
+
+    pub fn shapes(&self) -> Option<&Vec<Shape>> {
+        match &self.kind {
+            ShapeKind::Group { shapes, .. } => Some(&shapes),
+            _ => None, // It would be nice to return an empty vector here instead, so callers wouldn't have to unwrap.
+        }
+    }
+
     fn intersect_caps<'b>(&'b self, intersections: &mut Vec<Intersection<'b>>, local_ray: &Ray) {
         let (maximum, minimum, capped) = match self.kind {
             ShapeKind::Cylinder {
@@ -424,12 +475,50 @@ fn check_axis(origin: f64, direction: f64) -> (f64, f64) {
     (tmin, tmax)
 }
 
+// TODO: HACK: Passing in the world here because this his how I can find parents. Maybe using Rc or unsafe pointers
+// would make my life easier...
+fn world_to_object(s: &Shape, point: &Tuple, world: Option<&World>) -> Tuple {
+    let mut point = *point;
+
+    match s.parent_id {
+        Some(parent_id) => {
+            let world = world.expect("You can't have a parent without passing in a world.");
+            if let Some(parent) = world.get_shape_by_id(parent_id) {
+                point = world_to_object(parent, &point, Some(world)).clone();
+            }
+        }
+        None => (),
+    };
+
+    s.transform.inverse().expect("Should be invertible") * point
+}
+
+// TODO: HACK: Passing in the world here because this his how I can find parents. Maybe using Rc or unsafe pointers
+// would make my life easier...
+fn normal_to_world(shape: &Shape, normal: &Tuple, world: Option<&World>) -> Tuple {
+    let mut normal = shape.transform.inverse().unwrap().transpose() * *normal;
+    normal.w = 0.0;
+    normal = normal.normalize();
+
+    if let Some(uuid) = shape.parent_id {
+        let world = world.expect("You can't have a parent without passing in a world.");
+
+        let parent = world.get_shape_by_id(uuid);
+        if let Some(parent) = parent {
+            normal = normal_to_world(parent, &normal, Some(world));
+        }
+    }
+    normal
+}
+
 #[cfg(test)]
 mod tests {
     use std::f64::consts::PI;
 
     use super::*;
     use crate::assert_almost_eq;
+    use crate::color::WHITE;
+    use crate::light::Light;
     use crate::transformations::*;
 
     //
@@ -578,32 +667,35 @@ mod tests {
     #[test]
     fn the_normal_on_a_sphere_at_a_point_on_the_x_axis() {
         let s = Shape::sphere();
-        let n = s.normal_at(&Tuple::point(1., 0., 0.));
+        let n = s.normal_at(&Tuple::point(1., 0., 0.), None);
         assert_eq!(n, Tuple::vector(1., 0., 0.));
     }
 
     #[test]
     fn the_normal_on_a_sphere_at_a_point_on_the_y_axis() {
         let s = Shape::sphere();
-        let n = s.normal_at(&Tuple::point(0., 1., 0.));
+        let n = s.normal_at(&Tuple::point(0., 1., 0.), None);
         assert_eq!(n, Tuple::vector(0., 1., 0.));
     }
 
     #[test]
     fn the_normal_on_a_sphere_at_a_point_on_the_z_axis() {
         let s = Shape::sphere();
-        let n = s.normal_at(&Tuple::point(0., 0., 1.));
+        let n = s.normal_at(&Tuple::point(0., 0., 1.), None);
         assert_eq!(n, Tuple::vector(0., 0., 1.));
     }
 
     #[test]
     fn the_normal_on_a_sphere_at_a_nonaxial_point() {
         let s = Shape::sphere();
-        let n = s.normal_at(&Tuple::point(
-            (3. as f64).sqrt() / 3.,
-            (3. as f64).sqrt() / 3.,
-            (3. as f64).sqrt() / 3.,
-        ));
+        let n = s.normal_at(
+            &Tuple::point(
+                (3. as f64).sqrt() / 3.,
+                (3. as f64).sqrt() / 3.,
+                (3. as f64).sqrt() / 3.,
+            ),
+            None,
+        );
         assert_eq!(
             n,
             Tuple::vector(
@@ -617,11 +709,14 @@ mod tests {
     #[test]
     fn the_normal_is_a_normalized_vector() {
         let s = Shape::sphere();
-        let n = s.normal_at(&Tuple::point(
-            (3. as f64).sqrt() / 3.,
-            (3. as f64).sqrt() / 3.,
-            (3. as f64).sqrt() / 3.,
-        ));
+        let n = s.normal_at(
+            &Tuple::point(
+                (3. as f64).sqrt() / 3.,
+                (3. as f64).sqrt() / 3.,
+                (3. as f64).sqrt() / 3.,
+            ),
+            None,
+        );
         assert_eq!(n, n.normalize());
     }
 
@@ -630,7 +725,7 @@ mod tests {
         let mut s = Shape::sphere();
         s.transform = translation(0., 1., 0.);
 
-        let n = s.normal_at(&Tuple::point(0., 1.70711, -0.70711));
+        let n = s.normal_at(&Tuple::point(0., 1.70711, -0.70711), None);
         assert_eq!(n, Tuple::vector(0., 0.70711, -0.70711));
     }
 
@@ -639,11 +734,10 @@ mod tests {
         let mut s = Shape::sphere();
         let m = scaling(1., 0.5, 1.) * rotation_z(PI / 5.);
         s.transform = m;
-        let n = s.normal_at(&Tuple::point(
-            0.,
-            (2 as f64).sqrt() / 2.,
-            -(2 as f64).sqrt() / 2.,
-        ));
+        let n = s.normal_at(
+            &Tuple::point(0., (2 as f64).sqrt() / 2., -(2 as f64).sqrt() / 2.),
+            None,
+        );
         assert_eq!(n, Tuple::vector(0., 0.97014, -0.24254));
     }
 
@@ -679,45 +773,80 @@ mod tests {
     #[test]
     fn a_shape_has_a_parent_attribute() {
         let s = Shape::sphere();
-        assert!(s.parent().is_none());
+        assert!(s.parent_id.is_none());
     }
 
-    // Scenario: Converting a point from world to object space
-    //   Given g1 â† group()
-    //     And set_transform(g1, rotation_y(Ï€/2))
-    //     And g2 â† group()
-    //     And set_transform(g2, scaling(2, 2, 2))
-    //     And add_child(g1, g2)
-    //     And s â† sphere()
-    //     And set_transform(s, translation(5, 0, 0))
-    //     And add_child(g2, s)
-    //   When p â† world_to_object(s, point(-2, 0, -10))
-    //   Then p = point(0, 0, -1)
+    #[test]
+    fn converting_a_point_from_world_to_object_space() {
+        let mut g1 = Shape::group();
+        g1.transform = rotation_y(PI / 2.);
+        let mut g2 = Shape::group();
+        g2.transform = scaling(2., 2., 2.);
+        let mut s = Shape::sphere();
+        s.transform = translation(5., 0., 0.);
+        g2.add_child(s);
+        g1.add_child(g2);
 
-    // Scenario: Converting a normal from object to world space
-    //   Given g1 â† group()
-    //     And set_transform(g1, rotation_y(Ï€/2))
-    //     And g2 â† group()
-    //     And set_transform(g2, scaling(1, 2, 3))
-    //     And add_child(g1, g2)
-    //     And s â† sphere()
-    //     And set_transform(s, translation(5, 0, 0))
-    //     And add_child(g2, s)
-    //   When n â† normal_to_world(s, vector(âˆš3/3, âˆš3/3, âˆš3/3))
-    //   Then n = vector(0.2857, 0.4286, -0.8571)
+        let light = Light::new(Tuple::point(0.0, 0.0, 0.0), WHITE);
+        let mut w = World::new(light);
+        w.objects = vec![g1];
 
-    // Scenario: Finding the normal on a child object
-    //   Given g1 â† group()
-    //     And set_transform(g1, rotation_y(Ï€/2))
-    //     And g2 â† group()
-    //     And set_transform(g2, scaling(1, 2, 3))
-    //     And add_child(g1, g2)
-    //     And s â† sphere()
-    //     And set_transform(s, translation(5, 0, 0))
-    //     And add_child(g2, s)
-    //   When n â† normal_at(s, point(1.7321, 1.1547, -5.5774))
-    //   Then n = vector(0.2857, 0.4286, -0.8571)
+        // FIXME: Yuk!
+        let s = &w.objects[0].shapes().unwrap()[0].shapes().unwrap()[0];
+        let p = world_to_object(&s, &Tuple::point(-2., 0., -10.), Some(&w));
+        assert_eq!(p, Tuple::point(0., 0., -1.));
+    }
 
+    #[test]
+    fn converting_a_normal_from_object_to_world_space() {
+        let mut g2 = Shape::group();
+        g2.transform = scaling(1., 2., 3.);
+        let mut s = Shape::sphere();
+        s.transform = translation(5., 0., 0.);
+        g2.add_child(s);
+        let mut g1 = Shape::group();
+        g1.transform = rotation_y(PI / 2.);
+        g1.add_child(g2);
+
+        let light = Light::new(Tuple::point(0.0, 0.0, 0.0), WHITE);
+        let mut w = World::new(light);
+        w.objects = vec![g1];
+
+        // FIXME: Yuk!
+        let s = &w.objects[0].shapes().unwrap()[0].shapes().unwrap()[0];
+
+        let n = normal_to_world(
+            &s,
+            &Tuple::vector(
+                (3 as f64).sqrt() / 3.,
+                (3 as f64).sqrt() / 3.,
+                (3 as f64).sqrt() / 3.,
+            ),
+            Some(&w),
+        );
+        assert_eq!(n, Tuple::vector(0.28571, 0.42857, -0.85714));
+    }
+
+    #[test]
+    fn finding_the_normal_on_a_child_object() {
+        let mut g2 = Shape::group();
+        g2.transform = scaling(1., 2., 3.);
+        let mut s = Shape::sphere();
+        s.transform = translation(5., 0., 0.);
+        g2.add_child(s);
+        let mut g1 = Shape::group();
+        g1.transform = rotation_y(PI / 2.);
+        g1.add_child(g2);
+
+        // FIXME: Yuk!
+        let light = Light::new(Tuple::point(0.0, 0.0, 0.0), WHITE);
+        let mut w = World::new(light);
+        w.objects = vec![g1];
+        let s = &w.objects[0].shapes().unwrap()[0].shapes().unwrap()[0];
+
+        let n = s.normal_at(&Tuple::point(1.7321, 1.1547, -5.5774), Some(&w));
+        assert_eq!(n, Tuple::vector(0.28570, 0.42854, -0.85716));
+    }
     //
     // Planes
     //
@@ -726,9 +855,9 @@ mod tests {
     fn the_normal_of_a_plane_is_constant_everywhere() {
         let p = Shape::plane();
 
-        let n1 = p.normal_at(&Tuple::point(0.0, 0.0, 0.0));
-        let n2 = p.normal_at(&Tuple::point(10.0, 0.0, -10.0));
-        let n3 = p.normal_at(&Tuple::point(-5.0, 0.0, 150.0));
+        let n1 = p.normal_at(&Tuple::point(0.0, 0.0, 0.0), None);
+        let n2 = p.normal_at(&Tuple::point(10.0, 0.0, -10.0), None);
+        let n3 = p.normal_at(&Tuple::point(-5.0, 0.0, 150.0), None);
 
         assert_eq!(n1, Tuple::vector(0.0, 1.0, 0.0));
         assert_eq!(n2, Tuple::vector(0.0, 1.0, 0.0));
@@ -866,7 +995,7 @@ mod tests {
 
     fn internal_the_normal_on_the_surface_of_a_cube(point: Tuple, expected_normal: Tuple) {
         let c = Shape::cube();
-        let normal = c.normal_at(&point);
+        let normal = c.normal_at(&point, None);
         assert_eq!(normal, expected_normal);
     }
 
@@ -964,19 +1093,19 @@ mod tests {
     fn normal_vector_on_a_cylinder() {
         let cyl = Shape::infinite_cylinder();
         assert_eq!(
-            cyl.normal_at(&Tuple::point(1.0, 0.0, 0.0)),
+            cyl.normal_at(&Tuple::point(1.0, 0.0, 0.0), None),
             Tuple::vector(1.0, 0.0, 0.0)
         );
         assert_eq!(
-            cyl.normal_at(&Tuple::point(0.0, 5.0, -1.0)),
+            cyl.normal_at(&Tuple::point(0.0, 5.0, -1.0), None),
             Tuple::vector(0.0, 0.0, -1.0)
         );
         assert_eq!(
-            cyl.normal_at(&Tuple::point(0.0, -2.0, 1.0)),
+            cyl.normal_at(&Tuple::point(0.0, -2.0, 1.0), None),
             Tuple::vector(0.0, 0.0, 1.0)
         );
         assert_eq!(
-            cyl.normal_at(&Tuple::point(-1.0, 1.0, 0.0)),
+            cyl.normal_at(&Tuple::point(-1.0, 1.0, 0.0), None),
             Tuple::vector(-1.0, 0.0, 0.0)
         );
     }
@@ -1112,7 +1241,7 @@ mod tests {
     fn the_normal_vector_on_a_cylinder_s_end_caps() {
         let test_it = |point: Tuple, normal: Tuple| {
             let cyl = Shape::cylinder(1.0, 2.0, true);
-            let n = cyl.normal_at(&point);
+            let n = cyl.normal_at(&point, None);
 
             assert_eq!(n, normal);
         };
@@ -1204,7 +1333,7 @@ mod tests {
     fn computing_the_normal_vector_on_a_cone() {
         let test_it = |point: Tuple, normal: Tuple| {
             let shape = Shape::infinite_cone();
-            let n = shape.normal_at(&point);
+            let n = shape.normal_at(&point, None);
             assert_eq!(n, normal.normalize()); // Normalize, because in the book it's testing local_normal_at.
         };
 
@@ -1214,5 +1343,78 @@ mod tests {
             Tuple::vector(1.0, -(2.0 as f64).sqrt(), 1.0),
         );
         test_it(Tuple::point(-1.0, -1.0, 0.0), Tuple::vector(-1.0, 1.0, 0.0));
+    }
+
+    //
+    //Feature: Groups
+    //
+
+    #[test]
+    fn creating_a_new_group() {
+        let g = Shape::group();
+
+        assert_eq!(g.transform, Matrix::<4>::identity());
+        assert_eq!(g.shapes().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn adding_a_child_to_a_group() {
+        let mut g = Shape::group();
+        let s = Shape::sphere();
+        g.add_child(s);
+
+        let shapes = g.shapes().unwrap();
+        assert_eq!(shapes.len(), 1);
+
+        match g.kind {
+            ShapeKind::Group { uuid, .. } => assert_eq!(shapes[0].parent_id.unwrap(), uuid),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn intersecting_a_ray_with_an_empty_group() {
+        let g = Shape::group();
+        let r = Ray::new(Tuple::point(0.0, 0.0, 0.0), Tuple::vector(0.0, 0.0, 0.0));
+
+        let xs = g.intersect(&r);
+        assert_eq!(xs.len(), 0);
+    }
+
+    #[test]
+    fn intersecting_a_ray_with_a_nonempty_group() {
+        let mut g = Shape::group();
+
+        let s1 = Shape::sphere();
+        let mut s2 = Shape::sphere();
+        s2.transform = translation(0., 0., -3.);
+        let mut s3 = Shape::sphere();
+        s3.transform = translation(5., 0., 0.);
+
+        g.add_child(s1);
+        g.add_child(s2);
+        g.add_child(s3);
+
+        let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
+
+        let xs = g.intersect(&r);
+        assert_eq!(xs.len(), 4);
+        assert_eq!(*xs[0].object, g.shapes().unwrap()[1]); // s2
+        assert_eq!(*xs[1].object, g.shapes().unwrap()[1]); // s2
+        assert_eq!(*xs[1].object, g.shapes().unwrap()[1]); // s1
+        assert_eq!(*xs[3].object, g.shapes().unwrap()[0]); // s1
+    }
+
+    #[test]
+    fn intersecting_a_transformed_group() {
+        let mut g = Shape::group();
+        g.transform = scaling(2., 2., 2.);
+        let mut s = Shape::sphere();
+        s.transform = translation(5., 0., 0.);
+        g.add_child(s);
+        let r = Ray::new(Tuple::point(10., 0., -10.), Tuple::vector(0., 0., 1.));
+
+        let xs = g.intersect(&r);
+        assert_eq!(xs.len(), 2);
     }
 }

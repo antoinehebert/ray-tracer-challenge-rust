@@ -1,9 +1,11 @@
+use uuid::Uuid;
+
 use crate::{
     color::{Color, BLACK, WHITE},
     intersection::*,
     light::Light,
     ray::Ray,
-    shape::{Shape, Shapeable},
+    shape::Shape,
     transformations::scaling,
     tuple::Tuple,
 };
@@ -38,6 +40,23 @@ impl World {
             objects: vec![s1, s2],
             light: light,
         }
+    }
+
+    // FIXME: Maybe we could just use a root Group here instead of objects? It would remove duplication...
+    pub fn get_shape_by_id(&self, id: Uuid) -> Option<&Shape> {
+        for shape in &self.objects {
+            if let Some(parent_id) = shape.parent_id {
+                if parent_id == id {
+                    return Some(shape);
+                }
+            }
+
+            if let Some(shape) = shape.get_shape_by_id(id) {
+                return Some(shape);
+            }
+        }
+
+        None
     }
 
     fn intersect<'a, 'b>(&'a self, ray: &'b Ray) -> Intersections<'a> {

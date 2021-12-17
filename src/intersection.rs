@@ -1,5 +1,5 @@
 use crate::ray::Ray;
-use crate::shape::{Shape, Shapeable};
+use crate::shape::Shape;
 use crate::tuple::Tuple;
 use crate::utils::*;
 
@@ -17,7 +17,8 @@ impl<'a> Intersection<'a> {
     pub fn prepare_computations(&self, ray: &Ray, xs: &Intersections) -> Computations {
         let point = ray.position(self.t);
         let eyev = -ray.direction;
-        let mut normalv = self.object.normal_at(&point);
+        // TODO: INCOMPLETE: Pass in the world here!
+        let mut normalv = self.object.normal_at(&point, None);
 
         let inside = normalv.dot(&eyev) < 0.0;
         if inside {

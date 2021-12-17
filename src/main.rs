@@ -5,7 +5,6 @@
 mod camera;
 mod canvas;
 mod color;
-mod group;
 mod intersection;
 mod light;
 mod material;
