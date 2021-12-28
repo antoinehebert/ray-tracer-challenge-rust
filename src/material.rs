@@ -111,7 +111,14 @@ mod tests {
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 0., -10.), Color::new(1., 1., 1.));
 
-        let result = m.lighting(&light, &Shape::sphere(), &position, &eyev, &normalv, false);
+        let result = m.lighting(
+            &light,
+            &Shape::sphere().borrow(),
+            &position,
+            &eyev,
+            &normalv,
+            false,
+        );
         assert_eq!(result, Color::new(1.9, 1.9, 1.9));
     }
 
@@ -122,7 +129,14 @@ mod tests {
         let eyev = Tuple::vector(0., (2. as f64).sqrt() / 2., -(2. as f64).sqrt() / 2.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 0., -10.), Color::new(1., 1., 1.));
-        let result = m.lighting(&light, &Shape::sphere(), &position, &eyev, &normalv, false);
+        let result = m.lighting(
+            &light,
+            &Shape::sphere().borrow(),
+            &position,
+            &eyev,
+            &normalv,
+            false,
+        );
         assert_eq!(result, Color::new(1.0, 1.0, 1.0));
     }
 
@@ -133,7 +147,14 @@ mod tests {
         let eyev = Tuple::vector(0., 0., -1.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 10., -10.), Color::new(1., 1., 1.));
-        let result = m.lighting(&light, &Shape::sphere(), &position, &eyev, &normalv, false);
+        let result = m.lighting(
+            &light,
+            &Shape::sphere().borrow(),
+            &position,
+            &eyev,
+            &normalv,
+            false,
+        );
         assert_eq!(result, Color::new(0.7364, 0.7364, 0.7364));
     }
 
@@ -144,7 +165,14 @@ mod tests {
         let eyev = Tuple::vector(0., -(2. as f64).sqrt() / 2., -(2. as f64).sqrt() / 2.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 10., -10.), Color::new(1., 1., 1.));
-        let result = m.lighting(&light, &Shape::sphere(), &position, &eyev, &normalv, false);
+        let result = m.lighting(
+            &light,
+            &Shape::sphere().borrow(),
+            &position,
+            &eyev,
+            &normalv,
+            false,
+        );
         assert_eq!(result, Color::new(1.6364, 1.6364, 1.6364));
     }
 
@@ -155,7 +183,14 @@ mod tests {
         let eyev = Tuple::vector(0., 0., -1.);
         let normalv = Tuple::vector(0., 0., -1.);
         let light = Light::new(Tuple::point(0., 0., 10.), Color::new(1., 1., 1.));
-        let result = m.lighting(&light, &Shape::sphere(), &position, &eyev, &normalv, false);
+        let result = m.lighting(
+            &light,
+            &Shape::sphere().borrow(),
+            &position,
+            &eyev,
+            &normalv,
+            false,
+        );
         assert_eq!(result, Color::new(0.1, 0.1, 0.1));
     }
 
@@ -169,7 +204,7 @@ mod tests {
         let in_shadow = true;
         let result = m.lighting(
             &light,
-            &Shape::sphere(),
+            &Shape::sphere().borrow(),
             &position,
             &eyev,
             &normalv,
@@ -191,7 +226,7 @@ mod tests {
 
         let c1 = m.lighting(
             &light,
-            &Shape::sphere(),
+            &Shape::sphere().borrow(),
             &Tuple::point(0.9, 0., 0.),
             &eyev,
             &normalv,
@@ -199,7 +234,7 @@ mod tests {
         );
         let c2 = m.lighting(
             &light,
-            &Shape::sphere(),
+            &Shape::sphere().borrow(),
             &Tuple::point(1.1, 0., 0.),
             &eyev,
             &normalv,
