@@ -147,7 +147,6 @@ impl Shape {
     }
 
     // Returns intersection points (time) along `ray`.
-    // TODO: pass in ref to ChildShape?
     pub fn intersect(self_: &ChildShape, world_ray: &Ray) -> Intersections {
         let local_ray = world_ray.transform(
             self_
@@ -313,7 +312,7 @@ impl Shape {
         result
     }
 
-    // TODO: could be reg self!
+    // FIXME? could be reg self!
     pub fn normal_at(self_: &ChildShape, world_point: &Tuple) -> Tuple {
         let local_point = Shape::world_to_object(self_, world_point);
 

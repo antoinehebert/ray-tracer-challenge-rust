@@ -22,7 +22,6 @@ impl Intersection {
     pub fn prepare_computations(&self, ray: &Ray, xs: &Intersections) -> Computations {
         let point = ray.position(self.t);
         let eyev = -ray.direction;
-        // TODO: INCOMPLETE: Pass in the world here!
         let mut normalv = Shape::normal_at(&self.object, &point);
 
         let inside = normalv.dot(&eyev) < 0.0;
@@ -86,6 +85,12 @@ impl Intersection {
             n2,
         }
     }
+
+    pub fn hit(xs: &Intersections) -> Option<&Intersection> {
+        xs.iter()
+            .filter(|x| x.t >= 0.)
+            .min_by(|x, y| x.t.partial_cmp(&y.t).unwrap_or(std::cmp::Ordering::Equal))
+    }
 }
 
 pub type Intersections = Vec<Intersection>;
@@ -133,13 +138,6 @@ impl Computations {
     }
 }
 
-// TODO: make this a method on Intersections.
-pub fn hit(xs: &Intersections) -> Option<&Intersection> {
-    xs.iter()
-        .filter(|x| x.t >= 0.)
-        .min_by(|x, y| x.t.partial_cmp(&y.t).unwrap_or(std::cmp::Ordering::Equal))
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{assert_almost_eq, transformations::*};
@@ -173,7 +171,7 @@ mod tests {
         let i2 = Intersection::new(2., &s);
         let xs = vec![i1.clone(), i2];
 
-        let i = hit(&xs).unwrap();
+        let i = Intersection::hit(&xs).unwrap();
         assert_eq!(i, &i1);
     }
 
@@ -184,7 +182,7 @@ mod tests {
         let i2 = Intersection::new(1., &s);
         let xs = vec![i1, i2.clone()];
 
-        let i = hit(&xs).unwrap();
+        let i = Intersection::hit(&xs).unwrap();
         assert_eq!(i, &i2);
     }
 
@@ -195,7 +193,7 @@ mod tests {
         let i2 = Intersection::new(-1., &s);
         let xs = vec![i1, i2];
 
-        assert!(hit(&xs).is_none());
+        assert!(Intersection::hit(&xs).is_none());
     }
 
     #[test]
@@ -207,7 +205,7 @@ mod tests {
         let i4 = Intersection::new(2., &s);
         let xs = vec![i1, i2, i3, i4.clone()];
 
-        let i = hit(&xs).unwrap();
+        let i = Intersection::hit(&xs).unwrap();
         assert_eq!(i, &i4);
     }
 

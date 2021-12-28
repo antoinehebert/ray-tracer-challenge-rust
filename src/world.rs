@@ -88,7 +88,7 @@ impl World {
         }
 
         let xs = self.intersect(&ray);
-        let hit = hit(&xs);
+        let hit = Intersection::hit(&xs);
 
         match hit {
             None => BLACK,
@@ -107,7 +107,7 @@ impl World {
         let ray = Ray::new(point, direction);
         let intersections = self.intersect(&ray);
 
-        let hit = hit(&intersections);
+        let hit = Intersection::hit(&intersections);
         match hit {
             Some(hit) => hit.t < distance,
             None => false,
