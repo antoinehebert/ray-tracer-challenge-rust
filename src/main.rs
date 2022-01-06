@@ -2,6 +2,7 @@
 
 // TODO: use clippy?
 
+mod bounds;
 mod camera;
 mod canvas;
 mod color;

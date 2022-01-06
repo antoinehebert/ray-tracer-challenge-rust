@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::{
+    bounds::Bounds,
     intersection::{Intersection, Intersections},
     material::Material,
     matrix::Matrix,
@@ -17,7 +18,7 @@ pub type ChildShape = Rc<RefCell<Shape>>;
 type ParentShape = Weak<RefCell<Shape>>;
 
 #[derive(Debug, PartialEq, Clone)]
-enum ShapeKind {
+pub enum ShapeKind {
     Sphere, // The sphere is always centered at the world origin...
     Plane,  // Plane is in xy, with the normal pointing in the positive y direction.
     Cube,   // Centered at the world origin and going from -1 to 1.
@@ -35,9 +36,10 @@ enum ShapeKind {
         shapes: Vec<ChildShape>,
     },
 }
+
 #[derive(Debug, Clone)]
 pub struct Shape {
-    kind: ShapeKind,
+    pub kind: ShapeKind,
 
     pub parent: Option<ParentShape>,
     pub transform: Matrix<4>,
@@ -206,9 +208,12 @@ impl Shape {
                 //                |                |
                 //
                 // TODO: Optimize: You don't need to check all 6 planes if it's clear that the ray misses.
-                let (xtmin, xtmax) = Shape::check_axis(local_ray.origin.x, local_ray.direction.x);
-                let (ytmin, ytmax) = Shape::check_axis(local_ray.origin.y, local_ray.direction.y);
-                let (ztmin, ztmax) = Shape::check_axis(local_ray.origin.z, local_ray.direction.z);
+                let (xtmin, xtmax) =
+                    Shape::check_axis(-1.0, 1.0, local_ray.origin.x, local_ray.direction.x);
+                let (ytmin, ytmax) =
+                    Shape::check_axis(-1.0, 1.0, local_ray.origin.y, local_ray.direction.y);
+                let (ztmin, ztmax) =
+                    Shape::check_axis(-1.0, 1.0, local_ray.origin.z, local_ray.direction.z);
 
                 let tmin = xtmin.max(ytmin).max(ztmin);
                 let tmax = xtmax.min(ytmax).min(ztmax);
@@ -298,14 +303,41 @@ impl Shape {
                 Shape::intersect_caps(self_, &mut result, &local_ray);
             }
             ShapeKind::Group { shapes, .. } => {
-                let mut shape_results: Intersections = shapes
-                    .into_iter()
-                    .flat_map(|shape| Shape::intersect(shape, &local_ray))
-                    .collect();
-                shape_results
-                    .sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Equal));
+                // Optimization, check bounding box.
+                let bounds = Bounds::new(&self_.borrow());
 
-                result.append(&mut shape_results);
+                let (xtmin, xtmax) = Shape::check_axis(
+                    bounds.min.x,
+                    bounds.max.x,
+                    local_ray.origin.x,
+                    local_ray.direction.x,
+                );
+                let (ytmin, ytmax) = Shape::check_axis(
+                    bounds.min.y,
+                    bounds.max.y,
+                    local_ray.origin.y,
+                    local_ray.direction.y,
+                );
+                let (ztmin, ztmax) = Shape::check_axis(
+                    bounds.min.z,
+                    bounds.max.z,
+                    local_ray.origin.z,
+                    local_ray.direction.z,
+                );
+
+                let tmin = xtmin.max(ytmin).max(ztmin);
+                let tmax = xtmax.min(ytmax).min(ztmax);
+
+                if tmax > tmin {
+                    let mut shape_results: Intersections = shapes
+                        .into_iter()
+                        .flat_map(|shape| Shape::intersect(shape, &local_ray))
+                        .collect();
+                    shape_results
+                        .sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Equal));
+
+                    result.append(&mut shape_results);
+                }
             }
         };
 
@@ -437,9 +469,9 @@ impl Shape {
         x.powi(2) + z.powi(2) <= y.abs()
     }
 
-    fn check_axis(origin: f64, direction: f64) -> (f64, f64) {
-        let tmin_numerator = (-1.0) - origin;
-        let tmax_numerator = 1.0 - origin;
+    fn check_axis(min: f64, max: f64, origin: f64, direction: f64) -> (f64, f64) {
+        let tmin_numerator = min - origin;
+        let tmax_numerator = max - origin;
 
         let mut tmin: f64;
         let mut tmax: f64;
