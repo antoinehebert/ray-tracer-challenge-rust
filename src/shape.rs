@@ -530,17 +530,21 @@ impl PartialEq for Shape {
             && self.transform == other.transform
             && self.material == other.material;
 
-        if !same {
-            return false;
-        };
+        same
 
-        match &self.parent {
-            Some(parent) => match &other.parent {
-                Some(other_parent) => parent.upgrade().unwrap() == other_parent.upgrade().unwrap(),
-                None => false,
-            },
-            None => other.parent.is_none(),
-        }
+        // FIXME: Ignoring parent, this is causing a infinite loop when rendering...
+        //
+        // if !same {
+        //     return false;
+        // };
+        //
+        // match &self.parent {
+        //     Some(parent) => match &other.parent {
+        //         Some(other_parent) => parent.upgrade().unwrap() == other_parent.upgrade().unwrap(),
+        //         None => false,
+        //     },
+        //     None => other.parent.is_none(),
+        // }
     }
 }
 

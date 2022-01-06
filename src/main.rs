@@ -23,11 +23,13 @@ use std::env;
 
 use std::fs::File;
 
+use crate::shape::ChildShape;
 use camera::Camera;
 use color::*;
 use light::Light;
 use pattern::Pattern;
 use shape::Shape;
+use std::f64::consts::PI;
 use transformations::*;
 use tuple::Tuple;
 use world::World;
@@ -40,16 +42,77 @@ fn main() {
         return;
     }
 
-    putting_it_together(&args[1]);
+    putting_it_together_hexagon(&args[1]);
 }
 
 const WIDTH: usize = 400;
 const HEIGHT: usize = WIDTH / 2;
 
+// Chapter 14.
+fn putting_it_together_hexagon(filename: &str) {
+    let mut camera = Camera::new(WIDTH, HEIGHT, 0.785);
+    camera.transform = view_transform(
+        Tuple::point(8.0, 6.0, -8.0),
+        Tuple::point(0.0, 0.0, 0.0),
+        Tuple::vector(0.0, 1.0, 0.0),
+    );
+
+    let light = Light::new(Tuple::point(0.0, 6.9, -5.0), Color::new(1.0, 1.0, 0.9));
+
+    let mut world = World::new(light);
+
+    fn hexagon_corner() -> ChildShape {
+        let corner = Shape::sphere();
+        corner.borrow_mut().transform = translation(0., 0., -1.) * scaling(0.25, 0.25, 0.25);
+
+        corner
+    }
+
+    fn hexagon_edge() -> ChildShape {
+        let edge = Shape::cylinder(0., 1., true);
+        edge.borrow_mut().transform = translation(0., 0., -1.)
+            * rotation_y(-PI / 6.)
+            * rotation_z(-PI / 2.)
+            * scaling(0.25, 1., 0.25);
+
+        edge
+    }
+
+    fn hexagon_side() -> ChildShape {
+        let side = Shape::group();
+        Shape::add_child(&side, &hexagon_corner());
+        Shape::add_child(&side, &hexagon_edge());
+
+        side
+    }
+
+    fn hexagon() -> ChildShape {
+        let hex = Shape::group();
+        for i in 0..6 {
+            let side = hexagon_side();
+            side.borrow_mut().transform = rotation_y((i as f64) * PI / 3.);
+            Shape::add_child(&hex, &side);
+        }
+
+        hex
+    }
+
+    world.objects.push(hexagon());
+
+    let canvas = camera.render(&world);
+
+    let file = File::create(filename);
+
+    match file {
+        Ok(mut file) => canvas.to_ppm(&mut file),
+        Err(msg) => println!("Can't open {}: {}", filename, msg),
+    }
+}
+
 //
 // Putting it together. Exercises at the end of chapters.
 //
-fn putting_it_together(filename: &str) {
+fn putting_it_together_table_scene(filename: &str) {
     // From: https://forum.raytracerchallenge.com/thread/6/tables-scene-description
     let mut camera = Camera::new(WIDTH, HEIGHT, 0.785);
     camera.transform = view_transform(
