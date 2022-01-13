@@ -35,6 +35,14 @@ pub enum ShapeKind {
     Group {
         shapes: Vec<ChildShape>,
     },
+    Triangle {
+        p1: Tuple,
+        p2: Tuple,
+        p3: Tuple,
+        e1: Tuple,
+        e2: Tuple,
+        normal: Tuple,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +54,7 @@ pub struct Shape {
     pub material: Material,
 }
 
+// TODO: Constructors should probably not return ChildShape.
 impl Shape {
     pub fn sphere() -> ChildShape {
         Rc::new(RefCell::new(Self {
@@ -142,6 +151,28 @@ impl Shape {
     pub fn group() -> ChildShape {
         Rc::new(RefCell::new(Self {
             kind: ShapeKind::Group { shapes: vec![] },
+            parent: None,
+            transform: Matrix::<4>::identity(),
+            material: Material::new(),
+        }))
+    }
+
+    pub fn triangle(p1: Tuple, p2: Tuple, p3: Tuple) -> ChildShape {
+        assert!(p1.is_point() && p2.is_point() && p3.is_point());
+
+        let e1 = p2 - p1;
+        let e2 = p3 - p1;
+        let normal = e2.cross(&e1).normalize();
+
+        Rc::new(RefCell::new(Self {
+            kind: ShapeKind::Triangle {
+                p1,
+                p2,
+                p3,
+                e1,
+                e2,
+                normal,
+            },
             parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
@@ -339,6 +370,29 @@ impl Shape {
                     result.append(&mut shape_results);
                 }
             }
+            // Möller-Trumbore algorithm
+            ShapeKind::Triangle { p1, e1, e2, .. } => {
+                let dir_cross_e2 = local_ray.direction.cross(e2);
+                let det = e1.dot(&dir_cross_e2);
+
+                // If the result is close to zero, then the ray is parallel to the triangle and misses.
+                if !(det.abs() < EPSILON) {
+                    let f = 1.0 / det;
+
+                    let p1_to_origin = local_ray.origin - *p1;
+                    let u = f * p1_to_origin.dot(&dir_cross_e2);
+
+                    if !(u < 0.0 || u > 1.0) {
+                        let origin_cross_e1 = p1_to_origin.cross(&e1);
+                        let v = f * local_ray.direction.dot(&origin_cross_e1);
+
+                        if !(v < 0.0 || (u + v) > 1.0) {
+                            let t = f * e2.dot(&origin_cross_e1);
+                            result.push(Intersection::new(t, self_));
+                        }
+                    }
+                }
+            }
         };
 
         result
@@ -387,9 +441,8 @@ impl Shape {
                 }
                 Tuple::vector(local_point.x, y, local_point.z)
             }
-            ShapeKind::Group { .. } => {
-                unreachable!();
-            }
+            ShapeKind::Group { .. } => unreachable!(),
+            ShapeKind::Triangle { normal, .. } => normal.clone(),
         };
         assert!(local_normal.is_vector());
 
@@ -1435,5 +1488,119 @@ mod tests {
 
         let xs = Shape::intersect(&g, &r);
         assert_eq!(xs.len(), 2);
+    }
+
+    //
+    // Feature: Triangles
+    //
+
+    #[test]
+    fn constructing_a_triangle() {
+        let point1 = Tuple::point(0, 1, 0);
+        let point2 = Tuple::point(-1, 0, 0);
+        let point3 = Tuple::point(1, 0, 0);
+        let t = Shape::triangle(point1, point2, point3);
+
+        match t.borrow().kind {
+            ShapeKind::Triangle {
+                p1,
+                p2,
+                p3,
+                e1,
+                e2,
+                normal,
+            } => {
+                assert_eq!(p1, point1);
+                assert_eq!(p2, point2);
+                assert_eq!(p3, point3);
+                assert_eq!(e1, Tuple::vector(-1, -1, 0));
+                assert_eq!(e2, Tuple::vector(1, -1, 0));
+                assert_eq!(normal, Tuple::vector(0, 0, -1));
+            }
+            _ => panic!("Not a triangle"),
+        };
+    }
+
+    #[test]
+    fn intersecting_a_ray_parallel_to_the_triangle() {
+        let t = Shape::triangle(
+            Tuple::point(0, 1, 0),
+            Tuple::point(-1, 0, 0),
+            Tuple::point(1, 0, 0),
+        );
+        let r = Ray::new(Tuple::point(0, -1, -2), Tuple::vector(0, 1, 0));
+        let xs = Shape::intersect(&t, &r);
+        assert_eq!(xs.len(), 0);
+    }
+
+    #[test]
+    fn a_ray_misses_the_p1_p3_edge() {
+        let t = Shape::triangle(
+            Tuple::point(0, 1, 0),
+            Tuple::point(-1, 0, 0),
+            Tuple::point(1, 0, 0),
+        );
+        let r = Ray::new(Tuple::point(1, 1, -2), Tuple::vector(0, 0, 1));
+        let xs = Shape::intersect(&t, &r);
+        assert_eq!(xs.len(), 0);
+    }
+
+    #[test]
+    fn a_ray_misses_the_p1_p2_edge() {
+        let t = Shape::triangle(
+            Tuple::point(0, 1, 0),
+            Tuple::point(-1, 0, 0),
+            Tuple::point(1, 0, 0),
+        );
+        let r = Ray::new(Tuple::point(-1, 1, -2), Tuple::vector(0, 0, 1));
+        let xs = Shape::intersect(&t, &r);
+        assert_eq!(xs.len(), 0);
+    }
+
+    #[test]
+    fn a_ray_misses_the_p2_p3_edge() {
+        let t = Shape::triangle(
+            Tuple::point(0, 1, 0),
+            Tuple::point(-1, 0, 0),
+            Tuple::point(1, 0, 0),
+        );
+        let r = Ray::new(Tuple::point(0, -1, -2), Tuple::vector(0, 0, 1));
+        let xs = Shape::intersect(&t, &r);
+        assert_eq!(xs.len(), 0);
+    }
+
+    #[test]
+    fn a_ray_strikes_a_triangle() {
+        let t = Shape::triangle(
+            Tuple::point(0, 1, 0),
+            Tuple::point(-1, 0, 0),
+            Tuple::point(1, 0, 0),
+        );
+        let r = Ray::new(Tuple::point(0.0, 0.5, -2.0), Tuple::vector(0, 0, 1));
+        let xs = Shape::intersect(&t, &r);
+        assert_eq!(xs.len(), 1);
+        assert_eq!(xs[0].t, 2.0);
+    }
+
+    #[test]
+    fn finding_the_normal_on_a_triangle() {
+        let t = Shape::triangle(
+            Tuple::point(0, 1, 0),
+            Tuple::point(-1, 0, 0),
+            Tuple::point(1, 0, 0),
+        );
+
+        let n1 = Shape::normal_at(&t, &Tuple::point(0.0, 0.5, 0.0));
+        let n2 = Shape::normal_at(&t, &Tuple::point(-0.5, 0.75, 0.0));
+        let n3 = Shape::normal_at(&t, &Tuple::point(0.5, 0.25, 0.0));
+
+        match t.borrow().kind {
+            ShapeKind::Triangle { normal, .. } => {
+                assert_eq!(n1, normal);
+                assert_eq!(n2, normal);
+                assert_eq!(n3, normal);
+            }
+            _ => unreachable!(),
+        };
     }
 }

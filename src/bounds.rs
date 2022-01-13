@@ -117,6 +117,7 @@ impl Bounds {
                 min = out.min;
                 max = out.max;
             }
+            ShapeKind::Triangle { .. } => panic!("TODO, bounds of a triangle!"),
         }
         Self { min, max }
     }

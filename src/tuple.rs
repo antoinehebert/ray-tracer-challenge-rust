@@ -11,8 +11,13 @@ pub struct Tuple {
 }
 
 impl Tuple {
-    pub fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
-        Tuple { x, y, z, w }
+    pub fn new<T: Into<f64> + Copy>(x: T, y: T, z: T, w: T) -> Self {
+        Self {
+            x: x.into(),
+            y: y.into(),
+            z: z.into(),
+            w: w.into(),
+        }
     }
 
     pub fn zero() -> Self {
@@ -32,12 +37,12 @@ impl Tuple {
         self.w == 0.0
     }
 
-    pub fn point(x: f64, y: f64, z: f64) -> Tuple {
-        Tuple::new(x, y, z, 1.0)
+    pub fn point<T: Into<f64> + Copy>(x: T, y: T, z: T) -> Tuple {
+        Tuple::new(x.into(), y.into(), z.into(), 1.0)
     }
 
-    pub fn vector(x: f64, y: f64, z: f64) -> Tuple {
-        Tuple::new(x, y, z, 0.0)
+    pub fn vector<T: Into<f64> + Copy>(x: T, y: T, z: T) -> Tuple {
+        Tuple::new(x.into(), y.into(), z.into(), 0.0)
     }
 
     pub fn magnitude(&self) -> f64 {
