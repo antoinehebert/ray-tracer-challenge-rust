@@ -55,9 +55,11 @@ impl Bounds {
                 };
 
                 for shape in shapes {
+                    // TODO: Does this make sense now that we don't use parents for groups but push transformations down
+                    // to children?
+
                     // First, to convert a point from object space to its parent space, multiply the point by the
                     // object’s transformation matrix.
-                    let shape = shape.borrow();
                     let parent_space_bounds = Bounds::new(&shape);
                     let transformation = shape.transform;
 

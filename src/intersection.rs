@@ -1,22 +1,17 @@
 use crate::ray::Ray;
-use crate::shape::ChildShape;
 use crate::shape::Shape;
 use crate::tuple::Tuple;
 use crate::utils::*;
-use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Intersection {
+pub struct Intersection<'a> {
     pub t: f64, // intersection "time"
-    pub object: ChildShape,
+    pub object: &'a Shape,
 }
 
-impl Intersection {
-    pub fn new(t: f64, object: &ChildShape) -> Self {
-        Self {
-            t,
-            object: Rc::clone(object),
-        }
+impl<'a> Intersection<'a> {
+    pub fn new(t: f64, object: &'a Shape) -> Self {
+        Self { t, object: &object }
     }
 
     pub fn prepare_computations(&self, ray: &Ray, xs: &Intersections) -> Computations {
@@ -31,7 +26,7 @@ impl Intersection {
 
         let reflectv = ray.direction.reflect(&normalv);
 
-        let mut containers: Vec<ChildShape> = vec![];
+        let mut containers: Vec<&Shape> = vec![];
         let mut n1 = 1.0;
         let mut n2 = 1.0;
         'refraction_index_loop: for i in xs {
@@ -40,21 +35,17 @@ impl Intersection {
                     n1 = containers
                         .last()
                         .expect("there should be a last element in the list")
-                        .borrow()
                         .material
                         .refractive_index
                 };
             }
 
-            match containers
-                .iter()
-                .position(|o| *o.borrow() == *i.object.borrow())
-            {
+            match containers.iter().position(|&o| o == i.object) {
                 Some(index) => {
                     containers.remove(index);
                 }
                 None => {
-                    containers.push(Rc::clone(&i.object));
+                    containers.push(i.object);
                 }
             }
 
@@ -63,7 +54,6 @@ impl Intersection {
                     n2 = containers
                         .last()
                         .expect("there should be a last element in the list")
-                        .borrow()
                         .material
                         .refractive_index
                 };
@@ -73,7 +63,7 @@ impl Intersection {
 
         Computations {
             t: self.t,
-            object: Rc::clone(&self.object),
+            object: self.object,
             point,
             over_point: point + normalv * EPSILON,
             under_point: point - normalv * EPSILON,
@@ -86,18 +76,18 @@ impl Intersection {
         }
     }
 
-    pub fn hit(xs: &Intersections) -> Option<&Intersection> {
+    pub fn hit(xs: &'a Intersections) -> Option<&'a Intersection<'a>> {
         xs.iter()
             .filter(|x| x.t >= 0.)
             .min_by(|x, y| x.t.partial_cmp(&y.t).unwrap_or(std::cmp::Ordering::Equal))
     }
 }
 
-pub type Intersections = Vec<Intersection>;
+pub type Intersections<'a> = Vec<Intersection<'a>>;
 
-pub struct Computations {
+pub struct Computations<'a> {
     pub t: f64,
-    pub object: ChildShape,
+    pub object: &'a Shape,
     pub point: Tuple,
     pub over_point: Tuple,  // Prevent objects from shadowing themselves
     pub under_point: Tuple, // Where refracted rays will originate
@@ -109,7 +99,7 @@ pub struct Computations {
     pub n2: f64, // refractive_index to
 }
 
-impl Computations {
+impl<'a> Computations<'a> {
     // Approximation of Fresnel Effect
     //
     // Returns a number between 0 and 1, inclusive. This number is called the reflectance and represents what fraction
@@ -150,7 +140,7 @@ mod tests {
         let i = Intersection::new(3.5, &s);
 
         assert_eq!(i.t, 3.5);
-        assert_eq!(i.object, s);
+        assert_eq!(*i.object, s);
     }
     #[test]
     fn aggregating_intersections() {
@@ -265,8 +255,8 @@ mod tests {
     #[test]
     fn the_hit_should_offset_the_point() {
         let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
-        let shape = Shape::sphere();
-        shape.borrow_mut().transform = translation(0.0, 0.0, 1.0);
+        let mut shape = Shape::sphere();
+        shape.transform = translation(0.0, 0.0, 1.0);
         let i = Intersection::new(5.0, &shape);
         let comps = i.prepare_computations(&r, &vec![i.clone()]);
         assert!(comps.over_point.z < -EPSILON / 2.0);
@@ -296,17 +286,17 @@ mod tests {
     //                    -------------
     #[test]
     fn finding_n1_and_n2_at_various_intersections() {
-        let a = Shape::glass_sphere();
-        a.borrow_mut().transform = scaling(2.0, 2.0, 2.0);
-        a.borrow_mut().material.refractive_index = 1.5;
+        let mut a = Shape::glass_sphere();
+        a.transform = scaling(2.0, 2.0, 2.0);
+        a.material.refractive_index = 1.5;
 
-        let b = Shape::glass_sphere();
-        b.borrow_mut().transform = translation(0.0, 0.0, -0.25);
-        b.borrow_mut().material.refractive_index = 2.0;
+        let mut b = Shape::glass_sphere();
+        b.transform = translation(0.0, 0.0, -0.25);
+        b.material.refractive_index = 2.0;
 
-        let c = Shape::glass_sphere();
-        c.borrow_mut().transform = translation(0.0, 0.0, 0.25);
-        c.borrow_mut().material.refractive_index = 2.5;
+        let mut c = Shape::glass_sphere();
+        c.transform = translation(0.0, 0.0, 0.25);
+        c.material.refractive_index = 2.5;
 
         let r = Ray::new(Tuple::point(0.0, 0.0, -4.0), Tuple::vector(0.0, 0.0, 1.0));
         let xs: Intersections = vec![
@@ -337,8 +327,8 @@ mod tests {
     #[test]
     fn the_under_point_is_offset_below_the_surface() {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let shape = Shape::glass_sphere();
-        shape.borrow_mut().transform = translation(0., 0., 1.);
+        let mut shape = Shape::glass_sphere();
+        shape.transform = translation(0., 0., 1.);
         let i = Intersection::new(5., &shape);
         let xs: Intersections = vec![i];
         let comps = xs[0].prepare_computations(&r, &xs);

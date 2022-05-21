@@ -1,8 +1,4 @@
-use std::{
-    cell::RefCell,
-    mem::swap,
-    rc::{Rc, Weak},
-};
+use std::mem::swap;
 
 use crate::{
     bounds::Bounds,
@@ -13,8 +9,6 @@ use crate::{
     tuple::Tuple,
     utils::{is_almost_equal, EPSILON},
 };
-
-pub type ChildShape = Rc<RefCell<Shape>>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ShapeKind {
@@ -32,7 +26,7 @@ pub enum ShapeKind {
         capped: bool,
     }, // Radius of 1, extending to infinity in both +y and -y unless it's capped.
     Group {
-        shapes: Vec<ChildShape>,
+        shapes: Vec<Shape>,
     },
     Triangle {
         p1: Tuple,
@@ -54,44 +48,44 @@ pub struct Shape {
 
 // TODO: Constructors should probably not return ChildShape.
 impl Shape {
-    pub fn sphere() -> ChildShape {
-        Rc::new(RefCell::new(Self {
+    pub fn sphere() -> Self {
+        Self {
             kind: ShapeKind::Sphere,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-        }))
+        }
     }
 
-    pub fn glass_sphere() -> ChildShape {
+    pub fn glass_sphere() -> Self {
         let mut material = Material::new();
         material.transparency = 1.0;
         material.refractive_index = 1.5;
 
-        Rc::new(RefCell::new(Self {
+        Self {
             kind: ShapeKind::Sphere,
             transform: Matrix::<4>::identity(),
             material: material,
-        }))
+        }
     }
 
-    pub fn plane() -> ChildShape {
-        Rc::new(RefCell::new(Self {
+    pub fn plane() -> Self {
+        Self {
             kind: ShapeKind::Plane,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-        }))
+        }
     }
 
-    pub fn cube() -> ChildShape {
-        Rc::new(RefCell::new(Self {
+    pub fn cube() -> Self {
+        Self {
             kind: ShapeKind::Cube,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-        }))
+        }
     }
 
-    pub fn infinite_cylinder() -> ChildShape {
-        Rc::new(RefCell::new(Self {
+    pub fn infinite_cylinder() -> Self {
+        Self {
             kind: ShapeKind::Cylinder {
                 minimum: -f64::INFINITY,
                 maximum: f64::INFINITY,
@@ -99,11 +93,11 @@ impl Shape {
             },
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-        }))
+        }
     }
 
-    pub fn cylinder(min: f64, max: f64, capped: bool) -> ChildShape {
-        Rc::new(RefCell::new(Self {
+    pub fn cylinder(min: f64, max: f64, capped: bool) -> Self {
+        Self {
             kind: ShapeKind::Cylinder {
                 minimum: min,
                 maximum: max,
@@ -111,11 +105,11 @@ impl Shape {
             },
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-        }))
+        }
     }
 
-    pub fn infinite_cone() -> ChildShape {
-        Rc::new(RefCell::new(Self {
+    pub fn infinite_cone() -> Self {
+        Self {
             kind: ShapeKind::Cone {
                 minimum: -f64::INFINITY,
                 maximum: f64::INFINITY,
@@ -123,11 +117,11 @@ impl Shape {
             },
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-        }))
+        }
     }
 
-    pub fn cone(min: f64, max: f64, capped: bool) -> ChildShape {
-        Rc::new(RefCell::new(Self {
+    pub fn cone(min: f64, max: f64, capped: bool) -> Self {
+        Self {
             kind: ShapeKind::Cone {
                 minimum: min,
                 maximum: max,
@@ -135,25 +129,25 @@ impl Shape {
             },
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-        }))
+        }
     }
 
-    pub fn group() -> ChildShape {
-        Rc::new(RefCell::new(Self {
+    pub fn group() -> Self {
+        Self {
             kind: ShapeKind::Group { shapes: vec![] },
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-        }))
+        }
     }
 
-    pub fn triangle(p1: Tuple, p2: Tuple, p3: Tuple) -> ChildShape {
+    pub fn triangle(p1: Tuple, p2: Tuple, p3: Tuple) -> Self {
         assert!(p1.is_point() && p2.is_point() && p3.is_point());
 
         let e1 = p2 - p1;
         let e2 = p3 - p1;
         let normal = e2.cross(&e1).normalize();
 
-        Rc::new(RefCell::new(Self {
+        Self {
             kind: ShapeKind::Triangle {
                 p1,
                 p2,
@@ -164,14 +158,14 @@ impl Shape {
             },
             transform: Matrix::<4>::identity(),
             material: Material::new(),
-        }))
+        }
     }
 
     // Returns intersection points (time) along `ray`.
-    pub fn intersect(self_: &ChildShape, world_ray: &Ray) -> Intersections {
+    // TODO: Make this method
+    pub fn intersect<'a>(self_: &'a Self, world_ray: &Ray) -> Intersections<'a> {
         let local_ray = world_ray.transform(
             self_
-                .borrow()
                 .transform
                 .inverse()
                 .expect("shape transform should be invertible"),
@@ -179,7 +173,7 @@ impl Shape {
 
         let mut result = Vec::new();
 
-        match &self_.borrow().kind {
+        match &self_.kind {
             ShapeKind::Sphere => {
                 // The sphere is always centered at the world origin...
                 let sphere_to_ray = local_ray.origin - Tuple::point(0., 0., 0.);
@@ -323,7 +317,7 @@ impl Shape {
             }
             ShapeKind::Group { shapes, .. } => {
                 // Optimization, check bounding box.
-                let bounds = Bounds::new(&self_.borrow());
+                let bounds = Bounds::new(&self_);
 
                 let (xtmin, xtmax) = Shape::check_axis(
                     bounds.min.x,
@@ -388,10 +382,10 @@ impl Shape {
     }
 
     // FIXME? could be reg self!
-    pub fn normal_at(self_: &ChildShape, world_point: &Tuple) -> Tuple {
+    pub fn normal_at(self_: &Self, world_point: &Tuple) -> Tuple {
         let local_point = Shape::world_to_object(self_, world_point);
 
-        let local_normal = match &self_.borrow().kind {
+        let local_normal = match &self_.kind {
             ShapeKind::Sphere => local_point - Tuple::point(0.0, 0.0, 0.0),
             ShapeKind::Plane => Tuple::vector(0.0, 1.0, 0.0),
             ShapeKind::Cube => {
@@ -445,12 +439,9 @@ impl Shape {
 
     // Maybe passing shapes in the constructor would work too?
     // TODO: make a method on group?
-    pub fn add_child(group: &ChildShape, child: &ChildShape) {
-        let group_transform = group.borrow().transform.clone();
-        let child_transform = child.borrow().transform.clone();
-
+    pub fn add_child(group: &mut Self, child: Self) {
         // TODO: Use shapes function?
-        match &mut group.borrow_mut().kind {
+        match &mut group.kind {
             ShapeKind::Group { shapes } => {
                 // do this https://github.com/ahamez/ray-tracer/blob/7613e94eb99e972821ea47d821cb7a8376294cdc/src/rtc/shapes/group.rs#L134
                 // other one... https://forum.raytracerchallenge.com/thread/203/performance-tips-clarifications-book-errata
@@ -459,7 +450,7 @@ impl Shape {
                 // child
                 //     .borrow_mut()
                 //     .set_transform(group_transform * child_transform);
-                shapes.push(Rc::clone(child));
+                shapes.push(child);
             }
             _ => panic!("calling add_child on something that is not a Group."),
         }
@@ -478,7 +469,7 @@ impl Shape {
             // We probably need to store the inverse and push transformations on leaves.
             // child.borrow_mut().transform = group_transform * child_transform;
             for shape in shapes {
-                shape.borrow_mut().set_transform(transform);
+                shape.set_transform(transform);
                 // let s_transform = s.borrow().transform.clone();
                 // s.borrow_mut().transform = transform * s_transform;
             }
@@ -487,16 +478,15 @@ impl Shape {
         }
     }
 
-    pub fn shapes(&self) -> Option<&Vec<ChildShape>> {
+    pub fn shapes(&self) -> Option<&Vec<Self>> {
         match &self.kind {
             ShapeKind::Group { shapes, .. } => Some(&shapes),
             _ => None, // It would be nice to return an empty vector here instead, so callers wouldn't have to unwrap.
         }
     }
 
-    fn intersect_caps(self_: &ChildShape, intersections: &mut Vec<Intersection>, local_ray: &Ray) {
-        let self_b = self_.borrow();
-        let (maximum, minimum, capped) = match self_b.kind {
+    fn intersect_caps<'a>(&'a self, intersections: &mut Vec<Intersection<'a>>, local_ray: &Ray) {
+        let (maximum, minimum, capped) = match &self.kind {
             ShapeKind::Cylinder {
                 maximum,
                 minimum,
@@ -522,14 +512,14 @@ impl Shape {
         // Check for an intersection with the lower end cap by intersecting​ the ray with the plane at
         // y=cyl.minimum​.
         if Shape::check_cap(&local_ray, t) {
-            intersections.push(Intersection::new(t, self_));
+            intersections.push(Intersection::new(t, &self));
         }
 
         let t = (maximum - local_ray.origin.y) / local_ray.direction.y;
         // Check for an intersection with the upper end cap by intersecting​ the ray with the plane at
         // y=cyl.maximum.
         if Shape::check_cap(&local_ray, t) {
-            intersections.push(Intersection::new(t, self_));
+            intersections.push(Intersection::new(t, &self));
         }
     }
 
@@ -566,10 +556,7 @@ impl Shape {
         (tmin, tmax)
     }
 
-    fn world_to_object(shape: &ChildShape, point: &Tuple) -> Tuple {
-        let mut point = *point;
-        let shape = shape.borrow();
-
+    fn world_to_object(shape: &Self, point: &Tuple) -> Tuple {
         // match &shape.parent {
         //     Some(parent) => {
         //         point = Shape::world_to_object(
@@ -581,11 +568,10 @@ impl Shape {
         //     None => (),
         // };
 
-        shape.transform.inverse().expect("Should be invertible") * point
+        shape.transform.inverse().expect("Should be invertible") * *point
     }
 
-    fn normal_to_world(shape: &ChildShape, normal: &Tuple) -> Tuple {
-        let shape = shape.borrow();
+    fn normal_to_world(shape: &Self, normal: &Tuple) -> Tuple {
         let mut normal = shape.transform.inverse().unwrap().transpose() * *normal;
         normal.w = 0.0;
         normal = normal.normalize();
@@ -607,20 +593,6 @@ impl PartialEq for Shape {
             && self.material == other.material;
 
         same
-
-        // FIXME: Ignoring parent, this is causing a infinite loop when rendering...
-        //
-        // if !same {
-        //     return false;
-        // };
-        //
-        // match &self.parent {
-        //     Some(parent) => match &other.parent {
-        //         Some(other_parent) => parent.upgrade().unwrap() == other_parent.upgrade().unwrap(),
-        //         None => false,
-        //     },
-        //     None => other.parent.is_none(),
-        // }
     }
 }
 
@@ -639,32 +611,32 @@ mod tests {
     #[test]
     fn the_default_transformation() {
         let s = Shape::sphere();
-        assert_eq!(s.borrow().transform, Matrix::identity());
+        assert_eq!(s.transform, Matrix::identity());
     }
 
     #[test]
     fn assigning_a_transformation() {
-        let s = Shape::sphere();
-        s.borrow_mut().transform = translation(2.0, 3.0, 4.0);
+        let mut s = Shape::sphere();
+        s.transform = translation(2.0, 3.0, 4.0);
 
-        assert_eq!(s.borrow().transform, translation(2.0, 3.0, 4.0));
+        assert_eq!(s.transform, translation(2.0, 3.0, 4.0));
     }
 
     #[test]
     fn the_default_material() {
         let s = Shape::sphere();
-        let m = &s.borrow().material;
+        let m = &s.material;
 
         assert_eq!(m, &Material::new());
     }
 
     #[test]
     fn assigning_a_material() {
-        let s = Shape::sphere();
+        let mut s = Shape::sphere();
         let mut m = Material::new();
         m.ambient = 1.0;
-        s.borrow_mut().material = m.clone();
-        assert_eq!(s.borrow().material, m);
+        s.material = m.clone();
+        assert_eq!(s.material, m);
     }
 
     #[test]
@@ -732,31 +704,31 @@ mod tests {
         let xs = Shape::intersect(&s, &r);
 
         assert_eq!(xs.len(), 2);
-        assert_eq!(xs[0].object, s);
-        assert_eq!(xs[1].object, s);
+        assert_eq!(*xs[0].object, s);
+        assert_eq!(*xs[1].object, s);
     }
 
     #[test]
     fn a_sphere_s_default_transformations() {
         let s = Shape::sphere();
-        assert_eq!(s.borrow().transform, Matrix::<4>::identity());
+        assert_eq!(s.transform, Matrix::<4>::identity());
     }
 
     #[test]
     fn changing_a_sphere_s_transformations() {
-        let s = Shape::sphere();
+        let mut s = Shape::sphere();
         let t = translation(2., 3., 4.);
-        s.borrow_mut().transform = t;
+        s.transform = t;
 
-        assert_eq!(s.borrow().transform, t);
+        assert_eq!(s.transform, t);
     }
 
     #[test]
     fn intersecting_a_scaled_sphere_with_a_ray() {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let s = Shape::sphere();
+        let mut s = Shape::sphere();
 
-        s.borrow_mut().transform = scaling(2., 2., 2.);
+        s.transform = scaling(2., 2., 2.);
         let xs = Shape::intersect(&s, &r);
 
         assert_eq!(xs.len(), 2);
@@ -768,9 +740,9 @@ mod tests {
     #[test]
     fn intersecting_a_translated_sphere_with_a_ray() {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
-        let s = Shape::sphere();
+        let mut s = Shape::sphere();
 
-        s.borrow_mut().transform = translation(5., 0., 0.);
+        s.transform = translation(5., 0., 0.);
         let xs = Shape::intersect(&s, &r);
 
         assert_eq!(xs.len(), 0);
@@ -833,8 +805,8 @@ mod tests {
 
     #[test]
     fn computing_the_normal_on_a_translated_sphere() {
-        let s = Shape::sphere();
-        s.borrow_mut().transform = translation(0., 1., 0.);
+        let mut s = Shape::sphere();
+        s.transform = translation(0., 1., 0.);
 
         let n = Shape::normal_at(&s, &Tuple::point(0., 1.70711, -0.70711));
         assert_eq!(n, Tuple::vector(0., 0.70711, -0.70711));
@@ -842,9 +814,9 @@ mod tests {
 
     #[test]
     fn computing_the_normal_on_a_transformed_sphere() {
-        let s = Shape::sphere();
+        let mut s = Shape::sphere();
         let m = scaling(1., 0.5, 1.) * rotation_z(PI / 5.);
-        s.borrow_mut().transform = m;
+        s.transform = m;
         let n = Shape::normal_at(
             &s,
             &Tuple::point(0., (2 as f64).sqrt() / 2., -(2 as f64).sqrt() / 2.),
@@ -855,24 +827,24 @@ mod tests {
     #[test]
     fn a_sphere_has_a_default_material() {
         let s = Shape::sphere();
-        let m = &s.borrow().material;
+        let m = &s.material;
 
         assert_eq!(m, &Material::new());
     }
 
     #[test]
     fn a_sphere_may_be_assigned_a_material() {
-        let s = Shape::sphere();
+        let mut s = Shape::sphere();
         let mut m = Material::new();
         m.ambient = 1.234;
-        s.borrow_mut().material = m.clone();
-        assert_eq!(s.borrow().material, m);
+        s.material = m.clone();
+        assert_eq!(s.material, m);
     }
 
     #[test]
     fn a_helper_for_producing_a_sphere_with_a_glassy_material() {
         let s = Shape::glass_sphere();
-        let s = s.borrow();
+        let s = s;
         assert_eq!(s.transform, Matrix::<4>::identity());
         assert_eq!(s.material.transparency, 1.0);
         assert_eq!(s.material.refractive_index, 1.5);
@@ -885,41 +857,44 @@ mod tests {
     // #[test]
     // fn a_shape_has_a_parent_attribute() {
     //     let s = Shape::sphere();
-    //     assert!(s.borrow().parent.is_none());
+    //     assert!(s.parent.is_none());
     // }
 
     #[test]
     fn converting_a_point_from_world_to_object_space() {
-        let s = Shape::sphere();
-        s.borrow_mut().set_transform(translation(5., 0., 0.));
+        let mut s = Shape::sphere();
+        s.set_transform(translation(5., 0., 0.));
 
-        let g2 = Shape::group();
-        Shape::add_child(&g2, &s);
-        g2.borrow_mut().set_transform(scaling(2., 2., 2.));
+        let mut g2 = Shape::group();
+        Shape::add_child(&mut g2, s);
+        g2.set_transform(scaling(2., 2., 2.));
 
-        let g1 = Shape::group();
-        Shape::add_child(&g1, &g2);
-        g1.borrow_mut().set_transform(rotation_y(PI / 2.));
+        let mut g1 = Shape::group();
+        Shape::add_child(&mut g1, g2);
+        g1.set_transform(rotation_y(PI / 2.));
 
-        let p = Shape::world_to_object(&s, &Tuple::point(-2., 0., -10.));
+        let p = Shape::world_to_object(
+            &g1.shapes().unwrap()[0].shapes().unwrap()[0],
+            &Tuple::point(-2., 0., -10.),
+        );
         assert_eq!(p, Tuple::point(0., 0., -1.));
     }
 
     #[test]
     fn converting_a_normal_from_object_to_world_space() {
-        let s = Shape::sphere();
-        s.borrow_mut().set_transform(translation(5., 0., 0.));
+        let mut s = Shape::sphere();
+        s.set_transform(translation(5., 0., 0.));
 
-        let g2 = Shape::group();
-        Shape::add_child(&g2, &s);
-        g2.borrow_mut().set_transform(scaling(1., 2., 3.));
+        let mut g2 = Shape::group();
+        Shape::add_child(&mut g2, s);
+        g2.set_transform(scaling(1., 2., 3.));
 
-        let g1 = Shape::group();
-        Shape::add_child(&g1, &g2);
-        g1.borrow_mut().set_transform(rotation_y(PI / 2.));
+        let mut g1 = Shape::group();
+        Shape::add_child(&mut g1, g2);
+        g1.set_transform(rotation_y(PI / 2.));
 
         let n = Shape::normal_to_world(
-            &s,
+            &g1.shapes().unwrap()[0].shapes().unwrap()[0],
             &Tuple::vector(
                 (3 as f64).sqrt() / 3.,
                 (3 as f64).sqrt() / 3.,
@@ -931,18 +906,21 @@ mod tests {
 
     #[test]
     fn finding_the_normal_on_a_child_object() {
-        let s = Shape::sphere();
-        s.borrow_mut().set_transform(translation(5., 0., 0.));
+        let mut s = Shape::sphere();
+        s.set_transform(translation(5., 0., 0.));
 
-        let g2 = Shape::group();
-        Shape::add_child(&g2, &s);
-        g2.borrow_mut().set_transform(scaling(1., 2., 3.));
+        let mut g2 = Shape::group();
+        Shape::add_child(&mut g2, s);
+        g2.set_transform(scaling(1., 2., 3.));
 
-        let g1 = Shape::group();
-        Shape::add_child(&g1, &g2);
-        g1.borrow_mut().set_transform(rotation_y(PI / 2.));
+        let mut g1 = Shape::group();
+        Shape::add_child(&mut g1, g2);
+        g1.set_transform(rotation_y(PI / 2.));
 
-        let n = Shape::normal_at(&s, &Tuple::point(1.7321, 1.1547, -5.5774));
+        let n = Shape::normal_at(
+            &g1.shapes().unwrap()[0].shapes().unwrap()[0],
+            &Tuple::point(1.7321, 1.1547, -5.5774),
+        );
         assert_eq!(n, Tuple::vector(0.28570, 0.42854, -0.85716));
     }
     //
@@ -985,7 +963,7 @@ mod tests {
         let xs = Shape::intersect(&p, &r);
         assert_eq!(xs.len(), 1);
         assert_eq!(xs[0].t, 1.0);
-        assert_eq!(xs[0].object, p);
+        assert_eq!(*xs[0].object, p);
     }
 
     #[test]
@@ -995,7 +973,7 @@ mod tests {
         let xs = Shape::intersect(&p, &r);
         assert_eq!(xs.len(), 1);
         assert_eq!(xs[0].t, 1.0);
-        assert_eq!(xs[0].object, p);
+        assert_eq!(*xs[0].object, p);
     }
 
     //
@@ -1214,7 +1192,7 @@ mod tests {
 
         if let ShapeKind::Cylinder {
             minimum, maximum, ..
-        } = cyl.borrow().kind
+        } = cyl.kind
         {
             assert_eq!(minimum, -f64::INFINITY);
             assert_eq!(maximum, f64::INFINITY);
@@ -1286,7 +1264,7 @@ mod tests {
     fn the_default_closed_value_for_a_cylinder() {
         let cyl = Shape::infinite_cylinder();
 
-        if let ShapeKind::Cylinder { capped, .. } = cyl.borrow().kind {
+        if let ShapeKind::Cylinder { capped, .. } = cyl.kind {
             assert!(!capped);
         } else {
             assert!(false);
@@ -1450,7 +1428,7 @@ mod tests {
     #[test]
     fn creating_a_new_group() {
         let g = Shape::group();
-        let g = g.borrow();
+        let g = g;
 
         assert_eq!(g.transform, Matrix::<4>::identity());
         assert_eq!(g.shapes().unwrap().len(), 0);
@@ -1463,7 +1441,7 @@ mod tests {
     //     Shape::add_child(&g, &s);
 
     //     let shape_parent = s
-    //         .borrow()
+    //
     //         .parent
     //         .as_ref()
     //         .expect("parent should be set")
@@ -1484,36 +1462,36 @@ mod tests {
 
     #[test]
     fn intersecting_a_ray_with_a_nonempty_group() {
-        let g = Shape::group();
+        let mut g = Shape::group();
 
         let s1 = Shape::sphere();
-        let s2 = Shape::sphere();
-        s2.borrow_mut().transform = translation(0., 0., -3.);
-        let s3 = Shape::sphere();
-        s3.borrow_mut().transform = translation(5., 0., 0.);
+        let mut s2 = Shape::sphere();
+        s2.transform = translation(0., 0., -3.);
+        let mut s3 = Shape::sphere();
+        s3.transform = translation(5., 0., 0.);
 
-        Shape::add_child(&g, &s1);
-        Shape::add_child(&g, &s2);
-        Shape::add_child(&g, &s3);
+        Shape::add_child(&mut g, s1.clone());
+        Shape::add_child(&mut g, s2.clone());
+        Shape::add_child(&mut g, s3);
 
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
 
         let xs = Shape::intersect(&g, &r);
         assert_eq!(xs.len(), 4);
-        assert_eq!(xs[0].object.as_ptr(), s2.as_ptr());
-        assert_eq!(xs[1].object.as_ptr(), s2.as_ptr());
-        assert_eq!(xs[2].object.as_ptr(), s1.as_ptr());
-        assert_eq!(xs[3].object.as_ptr(), s1.as_ptr());
+        assert_eq!(*xs[0].object, s2);
+        assert_eq!(*xs[1].object, s2);
+        assert_eq!(*xs[2].object, s1);
+        assert_eq!(*xs[3].object, s1);
     }
 
     #[test]
     fn intersecting_a_transformed_group() {
-        let s = Shape::sphere();
-        s.borrow_mut().set_transform(translation(5., 0., 0.));
+        let mut s = Shape::sphere();
+        s.set_transform(translation(5., 0., 0.));
 
-        let g = Shape::group();
-        Shape::add_child(&g, &s);
-        g.borrow_mut().set_transform(scaling(2., 2., 2.));
+        let mut g = Shape::group();
+        Shape::add_child(&mut g, s);
+        g.set_transform(scaling(2., 2., 2.));
 
         let r = Ray::new(Tuple::point(10., 0., -10.), Tuple::vector(0., 0., 1.));
         let xs = Shape::intersect(&g, &r);
@@ -1531,7 +1509,7 @@ mod tests {
         let point3 = Tuple::point(1, 0, 0);
         let t = Shape::triangle(point1, point2, point3);
 
-        match t.borrow().kind {
+        match t.kind {
             ShapeKind::Triangle {
                 p1,
                 p2,
@@ -1624,7 +1602,7 @@ mod tests {
         let n2 = Shape::normal_at(&t, &Tuple::point(-0.5, 0.75, 0.0));
         let n3 = Shape::normal_at(&t, &Tuple::point(0.5, 0.25, 0.0));
 
-        match t.borrow().kind {
+        match t.kind {
             ShapeKind::Triangle { normal, .. } => {
                 assert_eq!(n1, normal);
                 assert_eq!(n2, normal);
