@@ -46,7 +46,6 @@ pub struct Shape {
     pub material: Material,
 }
 
-// TODO: Constructors should probably not return ChildShape.
 impl Shape {
     pub fn sphere() -> Self {
         Self {
@@ -162,18 +161,16 @@ impl Shape {
     }
 
     // Returns intersection points (time) along `ray`.
-    // TODO: Make this method
-    pub fn intersect<'a>(self_: &'a Self, world_ray: &Ray) -> Intersections<'a> {
+    pub fn intersect<'a>(self: &'a Self, world_ray: &Ray) -> Intersections<'a> {
         let local_ray = world_ray.transform(
-            self_
-                .transform
+            self.transform
                 .inverse()
                 .expect("shape transform should be invertible"),
         );
 
         let mut result = Vec::new();
 
-        match &self_.kind {
+        match &self.kind {
             ShapeKind::Sphere => {
                 // The sphere is always centered at the world origin...
                 let sphere_to_ray = local_ray.origin - Tuple::point(0., 0., 0.);
@@ -186,8 +183,8 @@ impl Shape {
 
                 if discriminant >= 0. {
                     let sqrt = discriminant.sqrt();
-                    result.push(Intersection::new((-b - sqrt) / (2. * a), self_));
-                    result.push(Intersection::new((-b + sqrt) / (2. * a), self_));
+                    result.push(Intersection::new((-b - sqrt) / (2. * a), self));
+                    result.push(Intersection::new((-b + sqrt) / (2. * a), self));
                 }
             }
             ShapeKind::Plane => {
@@ -195,7 +192,7 @@ impl Shape {
                 if local_ray.direction.y.abs() >= EPSILON {
                     result.push(Intersection::new(
                         -local_ray.origin.y / local_ray.direction.y,
-                        self_,
+                        self,
                     ));
                 }
             }
@@ -232,8 +229,8 @@ impl Shape {
                 let tmax = xtmax.min(ytmax).min(ztmax);
 
                 if tmax >= tmin {
-                    result.push(Intersection::new(tmin, self_));
-                    result.push(Intersection::new(tmax, self_));
+                    result.push(Intersection::new(tmin, self));
+                    result.push(Intersection::new(tmax, self));
                 }
             }
             ShapeKind::Cylinder {
@@ -260,17 +257,17 @@ impl Shape {
 
                         let y0 = local_ray.origin.y + t0 * local_ray.direction.y;
                         if *minimum < y0 && y0 < *maximum {
-                            result.push(Intersection::new(t0, self_));
+                            result.push(Intersection::new(t0, self));
                         }
 
                         let y1 = local_ray.origin.y + t1 * local_ray.direction.y;
                         if *minimum < y1 && y1 < *maximum {
-                            result.push(Intersection::new(t1, self_));
+                            result.push(Intersection::new(t1, self));
                         }
                     }
                 }
 
-                Shape::intersect_caps(self_, &mut result, &local_ray);
+                Shape::intersect_caps(self, &mut result, &local_ray);
             }
             ShapeKind::Cone {
                 minimum, maximum, ..
@@ -287,7 +284,7 @@ impl Shape {
                 if is_almost_equal(a, 0.0) {
                     if !is_almost_equal(b, 0.0) {
                         let t = -c / (2.0 * b);
-                        result.push(Intersection::new(t, self_));
+                        result.push(Intersection::new(t, self));
                     }
                 } else {
                     let discriminant = b.powi(2) - 4.0 * a * c;
@@ -303,21 +300,21 @@ impl Shape {
 
                         let y0 = local_ray.origin.y + t0 * local_ray.direction.y;
                         if *minimum < y0 && y0 < *maximum {
-                            result.push(Intersection::new(t0, self_));
+                            result.push(Intersection::new(t0, self));
                         }
 
                         let y1 = local_ray.origin.y + t1 * local_ray.direction.y;
                         if *minimum < y1 && y1 < *maximum {
-                            result.push(Intersection::new(t1, self_));
+                            result.push(Intersection::new(t1, self));
                         }
                     }
                 }
 
-                Shape::intersect_caps(self_, &mut result, &local_ray);
+                Shape::intersect_caps(self, &mut result, &local_ray);
             }
             ShapeKind::Group { shapes, .. } => {
                 // Optimization, check bounding box.
-                let bounds = Bounds::new(&self_);
+                let bounds = Bounds::new(&self);
 
                 let (xtmin, xtmax) = Shape::check_axis(
                     bounds.min.x,
@@ -371,7 +368,7 @@ impl Shape {
 
                         if !(v < 0.0 || (u + v) > 1.0) {
                             let t = f * e2.dot(&origin_cross_e1);
-                            result.push(Intersection::new(t, self_));
+                            result.push(Intersection::new(t, self));
                         }
                     }
                 }
