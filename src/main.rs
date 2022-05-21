@@ -34,23 +34,53 @@ use transformations::*;
 use tuple::Tuple;
 use world::World;
 
+fn help() {
+    println!("usage: ray-tracer-challenge-rust <filename.ppm> [width-in-px]");
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 2 {
-        println!("Expected a filename argument");
+    if args.len() < 2 {
+        println!("Expected a filename argument!");
+        help();
         return;
     }
 
-    putting_it_together_hexagon(&args[1]);
+    if args.len() > 3 {
+        println!("too many arguments argument!");
+        help();
+        return;
+    }
+
+    let filename: String = match args[1].parse() {
+        Ok(filename) => filename,
+        Err(_) => {
+            eprintln!("Error: Second argument not a string!");
+            help();
+            return;
+        }
+    };
+
+    let width: usize = if args.len() == 3 {
+        match args[2].parse() {
+            Ok(width) => width,
+            Err(_) => {
+                eprintln!("Error: Second argument not number!");
+                help();
+                return;
+            }
+        }
+    } else {
+        400
+    };
+
+    putting_it_together_hexagon(&filename, width);
 }
 
-const WIDTH: usize = 400;
-const HEIGHT: usize = WIDTH / 2;
-
 // Chapter 14.
-fn putting_it_together_hexagon(filename: &str) {
-    let mut camera = Camera::new(WIDTH, HEIGHT, 0.785);
+fn putting_it_together_hexagon(filename: &str, width: usize) {
+    let mut camera = Camera::new(width, width / 2, 0.785);
     camera.transform = view_transform(
         Tuple::point(8.0, 6.0, -8.0),
         Tuple::point(0.0, 0.0, 0.0),
@@ -90,7 +120,8 @@ fn putting_it_together_hexagon(filename: &str) {
         let hex = Shape::group();
         for i in 0..6 {
             let side = hexagon_side();
-            side.borrow_mut().transform = rotation_y((i as f64) * PI / 3.);
+            side.borrow_mut()
+                .set_transform(rotation_y((i as f64) * PI / 3.));
             Shape::add_child(&hex, &side);
         }
 
@@ -112,9 +143,9 @@ fn putting_it_together_hexagon(filename: &str) {
 //
 // Putting it together. Exercises at the end of chapters.
 //
-fn putting_it_together_table_scene(filename: &str) {
+fn putting_it_together_table_scene(filename: &str, width: usize) {
     // From: https://forum.raytracerchallenge.com/thread/6/tables-scene-description
-    let mut camera = Camera::new(WIDTH, HEIGHT, 0.785);
+    let mut camera = Camera::new(width, width / 2, 0.785);
     camera.transform = view_transform(
         Tuple::point(8.0, 6.0, -8.0),
         Tuple::point(0.0, 3.0, 0.0),

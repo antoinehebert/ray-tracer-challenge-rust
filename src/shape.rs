@@ -15,7 +15,6 @@ use crate::{
 };
 
 pub type ChildShape = Rc<RefCell<Shape>>;
-type ParentShape = Weak<RefCell<Shape>>;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ShapeKind {
@@ -49,7 +48,6 @@ pub enum ShapeKind {
 pub struct Shape {
     pub kind: ShapeKind,
 
-    pub parent: Option<ParentShape>,
     pub transform: Matrix<4>,
     pub material: Material,
 }
@@ -59,7 +57,6 @@ impl Shape {
     pub fn sphere() -> ChildShape {
         Rc::new(RefCell::new(Self {
             kind: ShapeKind::Sphere,
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
         }))
@@ -72,7 +69,6 @@ impl Shape {
 
         Rc::new(RefCell::new(Self {
             kind: ShapeKind::Sphere,
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: material,
         }))
@@ -81,7 +77,6 @@ impl Shape {
     pub fn plane() -> ChildShape {
         Rc::new(RefCell::new(Self {
             kind: ShapeKind::Plane,
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
         }))
@@ -90,7 +85,6 @@ impl Shape {
     pub fn cube() -> ChildShape {
         Rc::new(RefCell::new(Self {
             kind: ShapeKind::Cube,
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
         }))
@@ -103,7 +97,6 @@ impl Shape {
                 maximum: f64::INFINITY,
                 capped: false,
             },
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
         }))
@@ -116,7 +109,6 @@ impl Shape {
                 maximum: max,
                 capped,
             },
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
         }))
@@ -129,7 +121,6 @@ impl Shape {
                 maximum: f64::INFINITY,
                 capped: false,
             },
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
         }))
@@ -142,7 +133,6 @@ impl Shape {
                 maximum: max,
                 capped,
             },
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
         }))
@@ -151,7 +141,6 @@ impl Shape {
     pub fn group() -> ChildShape {
         Rc::new(RefCell::new(Self {
             kind: ShapeKind::Group { shapes: vec![] },
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
         }))
@@ -173,7 +162,6 @@ impl Shape {
                 e2,
                 normal,
             },
-            parent: None,
             transform: Matrix::<4>::identity(),
             material: Material::new(),
         }))
@@ -362,7 +350,8 @@ impl Shape {
                 if tmax > tmin {
                     let mut shape_results: Intersections = shapes
                         .into_iter()
-                        .flat_map(|shape| Shape::intersect(shape, &local_ray))
+                        // Pass world_ray because group transforms were applied to children.
+                        .flat_map(|shape| Shape::intersect(shape, world_ray))
                         .collect();
                     shape_results
                         .sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Equal));
@@ -448,19 +437,53 @@ impl Shape {
 
         let mut world_normal = Shape::normal_to_world(self_, &local_normal);
         // Hack: Instead of removing any translation by taking a 3x3 submatrix of the transform, we just set w to 0.
+        // TODO: Looks like we're already doing this in normal_to_world
         world_normal.w = 0.;
 
         world_normal.normalize()
     }
 
     // Maybe passing shapes in the constructor would work too?
-    pub fn add_child(group: &ChildShape, shape: &ChildShape) {
+    // TODO: make a method on group?
+    pub fn add_child(group: &ChildShape, child: &ChildShape) {
+        let group_transform = group.borrow().transform.clone();
+        let child_transform = child.borrow().transform.clone();
+
+        // TODO: Use shapes function?
         match &mut group.borrow_mut().kind {
             ShapeKind::Group { shapes } => {
-                shape.borrow_mut().parent = Some(Rc::downgrade(&group));
-                shapes.push(Rc::clone(shape));
+                // do this https://github.com/ahamez/ray-tracer/blob/7613e94eb99e972821ea47d821cb7a8376294cdc/src/rtc/shapes/group.rs#L134
+                // other one... https://forum.raytracerchallenge.com/thread/203/performance-tips-clarifications-book-errata
+                // We probably need to store the inverse and push transformations on leaves.
+
+                // child
+                //     .borrow_mut()
+                //     .set_transform(group_transform * child_transform);
+                shapes.push(Rc::clone(child));
             }
             _ => panic!("calling add_child on something that is not a Group."),
+        }
+    }
+
+    // TODO: add_child should be make group with transform and vec<children>, or maybe we make transform private and
+    // force using set_transform? This is ugly because calling set_transform twice will not work. Maybe this should be
+    // add_transform?
+    pub fn set_transform(&mut self, transform: Matrix<4>) {
+        // TODO: Test this.
+
+        if let ShapeKind::Group { shapes } = &mut self.kind {
+            // self.transform = transform * self.transform;
+            // do this https://github.com/ahamez/ray-tracer/blob/7613e94eb99e972821ea47d821cb7a8376294cdc/src/rtc/shapes/group.rs#L134
+            // other one... https://forum.raytracerchallenge.com/thread/203/performance-tips-clarifications-book-errata
+            // We probably need to store the inverse and push transformations on leaves.
+            // child.borrow_mut().transform = group_transform * child_transform;
+            for shape in shapes {
+                shape.borrow_mut().set_transform(transform);
+                // let s_transform = s.borrow().transform.clone();
+                // s.borrow_mut().transform = transform * s_transform;
+            }
+        } else {
+            self.transform = transform * self.transform;
         }
     }
 
@@ -547,16 +570,16 @@ impl Shape {
         let mut point = *point;
         let shape = shape.borrow();
 
-        match &shape.parent {
-            Some(parent) => {
-                point = Shape::world_to_object(
-                    &parent.upgrade().expect("parent should be valid here"),
-                    &point,
-                )
-                .clone();
-            }
-            None => (),
-        };
+        // match &shape.parent {
+        //     Some(parent) => {
+        //         point = Shape::world_to_object(
+        //             &parent.upgrade().expect("parent should be valid here"),
+        //             &point,
+        //         )
+        //         .clone();
+        //     }
+        //     None => (),
+        // };
 
         shape.transform.inverse().expect("Should be invertible") * point
     }
@@ -567,12 +590,12 @@ impl Shape {
         normal.w = 0.0;
         normal = normal.normalize();
 
-        if let Some(parent) = &shape.parent {
-            normal = Shape::normal_to_world(
-                &parent.upgrade().expect("parent should be valid here."),
-                &normal,
-            );
-        }
+        // if let Some(parent) = &shape.parent {
+        //     normal = Shape::normal_to_world(
+        //         &parent.upgrade().expect("parent should be valid here."),
+        //         &normal,
+        //     );
+        // }
         normal
     }
 }
@@ -859,22 +882,24 @@ mod tests {
     // Shape
     //
 
-    #[test]
-    fn a_shape_has_a_parent_attribute() {
-        let s = Shape::sphere();
-        assert!(s.borrow().parent.is_none());
-    }
+    // #[test]
+    // fn a_shape_has_a_parent_attribute() {
+    //     let s = Shape::sphere();
+    //     assert!(s.borrow().parent.is_none());
+    // }
 
     #[test]
     fn converting_a_point_from_world_to_object_space() {
-        let g1 = Shape::group();
-        g1.borrow_mut().transform = rotation_y(PI / 2.);
-        let g2 = Shape::group();
-        g2.borrow_mut().transform = scaling(2., 2., 2.);
-        Shape::add_child(&g1, &g2);
         let s = Shape::sphere();
-        s.borrow_mut().transform = translation(5., 0., 0.);
+        s.borrow_mut().set_transform(translation(5., 0., 0.));
+
+        let g2 = Shape::group();
         Shape::add_child(&g2, &s);
+        g2.borrow_mut().set_transform(scaling(2., 2., 2.));
+
+        let g1 = Shape::group();
+        Shape::add_child(&g1, &g2);
+        g1.borrow_mut().set_transform(rotation_y(PI / 2.));
 
         let p = Shape::world_to_object(&s, &Tuple::point(-2., 0., -10.));
         assert_eq!(p, Tuple::point(0., 0., -1.));
@@ -882,14 +907,16 @@ mod tests {
 
     #[test]
     fn converting_a_normal_from_object_to_world_space() {
-        let g2 = Shape::group();
-        g2.borrow_mut().transform = scaling(1., 2., 3.);
         let s = Shape::sphere();
-        s.borrow_mut().transform = translation(5., 0., 0.);
+        s.borrow_mut().set_transform(translation(5., 0., 0.));
+
+        let g2 = Shape::group();
         Shape::add_child(&g2, &s);
+        g2.borrow_mut().set_transform(scaling(1., 2., 3.));
+
         let g1 = Shape::group();
-        g1.borrow_mut().transform = rotation_y(PI / 2.);
         Shape::add_child(&g1, &g2);
+        g1.borrow_mut().set_transform(rotation_y(PI / 2.));
 
         let n = Shape::normal_to_world(
             &s,
@@ -904,14 +931,16 @@ mod tests {
 
     #[test]
     fn finding_the_normal_on_a_child_object() {
-        let g2 = Shape::group();
-        g2.borrow_mut().transform = scaling(1., 2., 3.);
         let s = Shape::sphere();
-        s.borrow_mut().transform = translation(5., 0., 0.);
+        s.borrow_mut().set_transform(translation(5., 0., 0.));
+
+        let g2 = Shape::group();
         Shape::add_child(&g2, &s);
+        g2.borrow_mut().set_transform(scaling(1., 2., 3.));
+
         let g1 = Shape::group();
-        g1.borrow_mut().transform = rotation_y(PI / 2.);
         Shape::add_child(&g1, &g2);
+        g1.borrow_mut().set_transform(rotation_y(PI / 2.));
 
         let n = Shape::normal_at(&s, &Tuple::point(1.7321, 1.1547, -5.5774));
         assert_eq!(n, Tuple::vector(0.28570, 0.42854, -0.85716));
@@ -1427,22 +1456,22 @@ mod tests {
         assert_eq!(g.shapes().unwrap().len(), 0);
     }
 
-    #[test]
-    fn adding_a_child_to_a_group() {
-        let g = Shape::group();
-        let s = Shape::sphere();
-        Shape::add_child(&g, &s);
+    // #[test]
+    // fn adding_a_child_to_a_group() {
+    //     let g = Shape::group();
+    //     let s = Shape::sphere();
+    //     Shape::add_child(&g, &s);
 
-        let shape_parent = s
-            .borrow()
-            .parent
-            .as_ref()
-            .expect("parent should be set")
-            .upgrade()
-            .expect("parent should be upgradable");
+    //     let shape_parent = s
+    //         .borrow()
+    //         .parent
+    //         .as_ref()
+    //         .expect("parent should be set")
+    //         .upgrade()
+    //         .expect("parent should be upgradable");
 
-        assert_eq!(shape_parent.as_ptr(), g.as_ptr());
-    }
+    //     assert_eq!(shape_parent.as_ptr(), g.as_ptr());
+    // }
 
     #[test]
     fn intersecting_a_ray_with_an_empty_group() {
@@ -1479,13 +1508,14 @@ mod tests {
 
     #[test]
     fn intersecting_a_transformed_group() {
-        let g = Shape::group();
-        g.borrow_mut().transform = scaling(2., 2., 2.);
         let s = Shape::sphere();
-        s.borrow_mut().transform = translation(5., 0., 0.);
-        Shape::add_child(&g, &s);
-        let r = Ray::new(Tuple::point(10., 0., -10.), Tuple::vector(0., 0., 1.));
+        s.borrow_mut().set_transform(translation(5., 0., 0.));
 
+        let g = Shape::group();
+        Shape::add_child(&g, &s);
+        g.borrow_mut().set_transform(scaling(2., 2., 2.));
+
+        let r = Ray::new(Tuple::point(10., 0., -10.), Tuple::vector(0., 0., 1.));
         let xs = Shape::intersect(&g, &r);
         assert_eq!(xs.len(), 2);
     }
