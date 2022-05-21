@@ -435,18 +435,9 @@ impl Shape {
     }
 
     // Maybe passing shapes in the constructor would work too?
-    // TODO: make a method on group?
-    pub fn add_child(group: &mut Self, child: Self) {
-        // TODO: Use shapes function?
-        match &mut group.kind {
+    pub fn add_child(self: &mut Self, child: Self) {
+        match &mut self.kind {
             ShapeKind::Group { shapes } => {
-                // do this https://github.com/ahamez/ray-tracer/blob/7613e94eb99e972821ea47d821cb7a8376294cdc/src/rtc/shapes/group.rs#L134
-                // other one... https://forum.raytracerchallenge.com/thread/203/performance-tips-clarifications-book-errata
-                // We probably need to store the inverse and push transformations on leaves.
-
-                // child
-                //     .borrow_mut()
-                //     .set_transform(group_transform * child_transform);
                 shapes.push(child);
             }
             _ => panic!("calling add_child on something that is not a Group."),
@@ -863,11 +854,11 @@ mod tests {
         s.set_transform(translation(5., 0., 0.));
 
         let mut g2 = Shape::group();
-        Shape::add_child(&mut g2, s);
+        g2.add_child(s);
         g2.set_transform(scaling(2., 2., 2.));
 
         let mut g1 = Shape::group();
-        Shape::add_child(&mut g1, g2);
+        g1.add_child(g2);
         g1.set_transform(rotation_y(PI / 2.));
 
         let p = Shape::world_to_object(
@@ -883,11 +874,11 @@ mod tests {
         s.set_transform(translation(5., 0., 0.));
 
         let mut g2 = Shape::group();
-        Shape::add_child(&mut g2, s);
+        g2.add_child(s);
         g2.set_transform(scaling(1., 2., 3.));
 
         let mut g1 = Shape::group();
-        Shape::add_child(&mut g1, g2);
+        g1.add_child(g2);
         g1.set_transform(rotation_y(PI / 2.));
 
         let n = Shape::normal_to_world(
@@ -907,11 +898,11 @@ mod tests {
         s.set_transform(translation(5., 0., 0.));
 
         let mut g2 = Shape::group();
-        Shape::add_child(&mut g2, s);
+        g2.add_child(s);
         g2.set_transform(scaling(1., 2., 3.));
 
         let mut g1 = Shape::group();
-        Shape::add_child(&mut g1, g2);
+        g1.add_child(g2);
         g1.set_transform(rotation_y(PI / 2.));
 
         let n = Shape::normal_at(
