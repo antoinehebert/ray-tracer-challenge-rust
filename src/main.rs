@@ -120,7 +120,7 @@ fn putting_it_together_hexagon(filename: &str, width: usize) {
             sides.push(side);
         }
 
-        Shape::group(sides, Matrix::<4>::identity())
+        Shape::group(sides, scaling(2.5, 2.5, 2.5))
     }
 
     world.objects.push(hexagon());
