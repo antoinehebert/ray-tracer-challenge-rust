@@ -33,6 +33,8 @@ use transformations::*;
 use tuple::Tuple;
 use world::World;
 
+use crate::matrix::Matrix;
+
 fn help() {
     println!("usage: ray-tracer-challenge-rust <filename.ppm> [width-in-px]");
 }
@@ -107,23 +109,18 @@ fn putting_it_together_hexagon(filename: &str, width: usize) {
         edge
     }
 
-    fn hexagon_side() -> Shape {
-        let mut side = Shape::group();
-        Shape::add_child(&mut side, hexagon_corner());
-        Shape::add_child(&mut side, hexagon_edge());
-
-        side
+    fn hexagon_side(transform: Matrix<4>) -> Shape {
+        Shape::group(vec![hexagon_corner(), hexagon_edge()], transform)
     }
 
     fn hexagon() -> Shape {
-        let mut hex = Shape::group();
+        let mut sides = vec![];
         for i in 0..6 {
-            let mut side = hexagon_side();
-            side.set_transform(rotation_y((i as f64) * PI / 3.));
-            Shape::add_child(&mut hex, side);
+            let side = hexagon_side(rotation_y((i as f64) * PI / 3.));
+            sides.push(side);
         }
 
-        hex
+        Shape::group(sides, Matrix::<4>::identity())
     }
 
     world.objects.push(hexagon());

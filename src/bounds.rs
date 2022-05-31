@@ -2,7 +2,6 @@ use crate::shape::Shape;
 use crate::shape::ShapeKind;
 use crate::tuple::Tuple;
 
-// TODO: Move to bounds.rs?
 pub struct Bounds {
     pub min: Tuple,
     pub max: Tuple,
