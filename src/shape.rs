@@ -42,8 +42,10 @@ pub enum ShapeKind {
 pub struct Shape {
     pub kind: ShapeKind,
 
-    // TODO: Prevent accessing this directly on groups since we need to pass the transform down to children in the
-    // constructor. Making a set_transform function could do the trick, but this is not important now.
+    // TODO: @Robustness: Prevent accessing this directly on groups since we need to pass the transform down to children
+    // in the constructor. Making a set_transform function could do the trick, but this is not important now.
+    //
+    // TODO: @Optimization: make a set_transform so we can pre-compute inverse and inverse_transform.
     pub transform: Matrix<4>,
     pub material: Material,
 }
