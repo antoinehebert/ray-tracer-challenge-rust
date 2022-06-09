@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{
-    shape::{ChildShape, Shape},
-    tuple::Tuple,
-};
+use crate::{matrix::Matrix, shape::Shape, tuple::Tuple};
 
 struct Parser {
     vertices: Vec<Tuple>,
     ignored_lines: usize,
-    default_group: ChildShape,
-    named_groups: HashMap<String, ChildShape>,
+    default_group: Shape,
+    named_groups: HashMap<String, Shape>,
 }
 
 impl Parser {
@@ -17,7 +14,7 @@ impl Parser {
         Self {
             ignored_lines: 0,
             vertices: Vec::new(),
-            default_group: Shape::group(), // TODO: Do we need this? Should we have a "" key in named_groups?
+            default_group: Shape::group(vec![], Matrix::<4>::identity()), // TODO: Do we need this? Should we have a "" key in named_groups?
             named_groups: HashMap::new(),
         }
     }

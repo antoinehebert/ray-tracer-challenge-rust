@@ -41,12 +41,8 @@ pub enum ShapeKind {
 #[derive(Debug, Clone)]
 pub struct Shape {
     pub kind: ShapeKind,
-
-    // TODO: @Robustness: Prevent accessing this directly on groups since we need to pass the transform down to children
-    // in the constructor. Making a set_transform function could do the trick, but this is not important now.
-    //
-    // TODO: @Optimization: make a set_transform so we can pre-compute inverse and inverse_transform.
-    pub transform: Matrix<4>,
+    transform: Matrix<4>,
+    transformed: bool,
     pub material: Material,
 }
 
@@ -55,6 +51,7 @@ impl Shape {
         Self {
             kind: ShapeKind::Sphere,
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: Material::new(),
         }
     }
@@ -67,6 +64,7 @@ impl Shape {
         Self {
             kind: ShapeKind::Sphere,
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: material,
         }
     }
@@ -75,6 +73,7 @@ impl Shape {
         Self {
             kind: ShapeKind::Plane,
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: Material::new(),
         }
     }
@@ -83,6 +82,7 @@ impl Shape {
         Self {
             kind: ShapeKind::Cube,
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: Material::new(),
         }
     }
@@ -95,6 +95,7 @@ impl Shape {
                 capped: false,
             },
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: Material::new(),
         }
     }
@@ -107,6 +108,7 @@ impl Shape {
                 capped,
             },
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: Material::new(),
         }
     }
@@ -119,6 +121,7 @@ impl Shape {
                 capped: false,
             },
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: Material::new(),
         }
     }
@@ -131,30 +134,17 @@ impl Shape {
                 capped,
             },
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: Material::new(),
         }
     }
 
-    pub fn group(children: Vec<Shape>, transform: Matrix<4>) -> Self {
-        let mut group = Self {
-            kind: ShapeKind::Group { shapes: children },
+    pub fn group() -> Self {
+        Self {
+            kind: ShapeKind::Group { shapes: Vec::new() },
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: Material::new(),
-        };
-
-        group.set_transform_on_group_leaves(transform);
-
-        group
-    }
-
-    fn set_transform_on_group_leaves(&mut self, transform: Matrix<4>) {
-        // TODO: Test this.
-        if let ShapeKind::Group { shapes } = &mut self.kind {
-            for shape in shapes {
-                shape.set_transform_on_group_leaves(transform);
-            }
-        } else {
-            self.transform = transform * self.transform;
         }
     }
 
@@ -175,8 +165,36 @@ impl Shape {
                 normal,
             },
             transform: Matrix::<4>::identity(),
+            transformed: false,
             material: Material::new(),
         }
+    }
+
+    // TODO: Test this.
+    pub fn set_transform(&mut self, transform: Matrix<4>) {
+        // FIXME: HACK: If we call set_transform more than once on a group it will fail, because we push down transforms
+        // on leaves to avoid a circular tree with parents. This is also an optimization...
+        if self.transformed {
+            panic!("Can't call set_transform more than once.");
+        }
+        self.transformed = true;
+
+        self.set_transform_internal(transform);
+    }
+
+    pub fn set_transform_internal(&mut self, transform: Matrix<4>) {
+        if let ShapeKind::Group { shapes } = &mut self.kind {
+            for shape in shapes {
+                shape.set_transform_internal(transform);
+            }
+        } else {
+            // TODO: Precompute inverse and interse.transpose?
+            self.transform = transform * self.transform;
+        }
+    }
+
+    pub fn transform(&self) -> Matrix<4> {
+        self.transform
     }
 
     // Returns intersection points (time) along `ray`.
@@ -453,11 +471,17 @@ impl Shape {
         world_normal.normalize()
     }
 
-    pub fn shapes(&self) -> Option<&Vec<Self>> {
-        match &self.kind {
-            ShapeKind::Group { shapes, .. } => Some(&shapes),
+    fn shapes(&mut self) -> Option<&mut Vec<Self>> {
+        match &mut self.kind {
+            ShapeKind::Group { shapes, .. } => Some(shapes),
             _ => None, // It would be nice to return an empty vector here instead, so callers wouldn't have to unwrap.
         }
+    }
+
+    pub fn push_shape(&mut self, shape: Shape) {
+        self.shapes()
+            .expect("push_shape was called on something that isn't a group")
+            .push(shape);
     }
 
     fn intersect_caps<'a>(&'a self, intersections: &mut Vec<Intersection<'a>>, local_ray: &Ray) {
@@ -838,11 +862,15 @@ mod tests {
     #[test]
     fn converting_a_point_from_world_to_object_space() {
         let mut s = Shape::sphere();
-        s.transform = translation(5., 0., 0.);
+        s.set_transform(translation(5., 0., 0.));
 
-        let g2 = Shape::group(vec![s], scaling(2., 2., 2.));
+        let mut g2 = Shape::group();
+        g2.push_shape(s);
+        g2.set_transform(scaling(2., 2., 2.));
 
-        let g1 = Shape::group(vec![g2], rotation_y(PI / 2.));
+        let mut g1 = Shape::group();
+        g1.push_shape(g2);
+        g1.set_transform(rotation_y(PI / 2.));
 
         let p = Shape::world_to_object(
             &g1.shapes().unwrap()[0].shapes().unwrap()[0],
@@ -854,11 +882,15 @@ mod tests {
     #[test]
     fn converting_a_normal_from_object_to_world_space() {
         let mut s = Shape::sphere();
-        s.transform = translation(5., 0., 0.);
+        s.set_transform(translation(5., 0., 0.));
 
-        let g2 = Shape::group(vec![s], scaling(1., 2., 3.));
+        let mut g2 = Shape::group();
+        g2.push_shape(s);
+        g2.set_transform(scaling(1., 2., 3.));
 
-        let g1 = Shape::group(vec![g2], rotation_y(PI / 2.));
+        let mut g1 = Shape::group();
+        g1.push_shape(g2);
+        g1.set_transform(rotation_y(PI / 2.));
 
         let n = Shape::normal_to_world(
             &g1.shapes().unwrap()[0].shapes().unwrap()[0],
@@ -874,11 +906,15 @@ mod tests {
     #[test]
     fn finding_the_normal_on_a_child_object() {
         let mut s = Shape::sphere();
-        s.transform = translation(5., 0., 0.);
+        s.set_transform(translation(5., 0., 0.));
 
-        let g2 = Shape::group(vec![s], scaling(1., 2., 3.));
+        let mut g2 = Shape::group();
+        g2.push_shape(s);
+        g2.set_transform(scaling(1., 2., 3.));
 
-        let g1 = Shape::group(vec![g2], rotation_y(PI / 2.));
+        let mut g1 = Shape::group();
+        g1.push_shape(g2);
+        g1.set_transform(rotation_y(PI / 2.));
 
         let n = Shape::normal_at(
             &g1.shapes().unwrap()[0].shapes().unwrap()[0],
@@ -1385,37 +1421,29 @@ mod tests {
     }
 
     //
-    //Feature: Groups
+    // Feature: Groups
     //
 
     #[test]
     fn creating_a_new_group() {
-        let g = Shape::group(vec![], Matrix::<4>::identity());
+        let mut g = Shape::group();
 
         assert_eq!(g.transform, Matrix::<4>::identity());
         assert_eq!(g.shapes().unwrap().len(), 0);
     }
 
-    // #[test]
-    // fn adding_a_child_to_a_group() {
-    //     let g = Shape::group();
-    //     let s = Shape::sphere();
-    //     Shape::add_child(&g, &s);
+    #[test]
+    fn adding_a_child_to_a_group() {
+        let mut g = Shape::group();
+        let s = Shape::sphere();
+        g.push_shape(s.clone());
 
-    //     let shape_parent = s
-    //
-    //         .parent
-    //         .as_ref()
-    //         .expect("parent should be set")
-    //         .upgrade()
-    //         .expect("parent should be upgradable");
-
-    //     assert_eq!(shape_parent.as_ptr(), g.as_ptr());
-    // }
+        assert_eq!(g.shapes().unwrap()[0], s);
+    }
 
     #[test]
     fn intersecting_a_ray_with_an_empty_group() {
-        let g = Shape::group(vec![], Matrix::<4>::identity());
+        let g = Shape::group();
         let r = Ray::new(Tuple::point(0.0, 0.0, 0.0), Tuple::vector(0.0, 0.0, 0.0));
 
         let xs = Shape::intersect(&g, &r);
@@ -1430,7 +1458,10 @@ mod tests {
         let mut s3 = Shape::sphere();
         s3.transform = translation(5., 0., 0.);
 
-        let g = Shape::group(vec![s1.clone(), s2.clone(), s3], Matrix::<4>::identity());
+        let mut g = Shape::group();
+        g.push_shape(s1.clone());
+        g.push_shape(s2.clone());
+        g.push_shape(s3);
 
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
 
@@ -1447,7 +1478,9 @@ mod tests {
         let mut s = Shape::sphere();
         s.transform = translation(5., 0., 0.);
 
-        let g = Shape::group(vec![s], scaling(2., 2., 2.));
+        let mut g = Shape::group();
+        g.push_shape(s);
+        g.set_transform(scaling(2., 2., 2.));
 
         let r = Ray::new(Tuple::point(10., 0., -10.), Tuple::vector(0., 0., 1.));
         let xs = Shape::intersect(&g, &r);

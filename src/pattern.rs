@@ -85,7 +85,8 @@ impl Pattern {
 
     // TODO: move on Shape?
     pub fn color_at_shape(&self, object: &Shape, world_point: &Tuple) -> Color {
-        let object_point = object.transform.inverse().expect("should be invertible") * *world_point;
+        let object_point =
+            object.transform().inverse().expect("should be invertible") * *world_point;
         let pattern_point = self.transform.inverse().expect("should be invertible") * object_point;
 
         self.color_at(&pattern_point)
@@ -144,7 +145,7 @@ mod tests {
     #[test]
     fn stripes_with_an_object_transformation() {
         let mut object = Shape::sphere();
-        object.transform = scaling(2.0, 2.0, 2.0);
+        object.set_transform(scaling(2.0, 2.0, 2.0));
         let pattern = Pattern::stripe(WHITE, BLACK);
         let c = pattern.color_at_shape(&object, &Tuple::point(1.5, 0.0, 0.0));
         assert_eq!(c, WHITE);
@@ -162,7 +163,7 @@ mod tests {
     #[test]
     fn stripes_with_both_an_object_and_a_pattern_transformation() {
         let mut object = Shape::sphere();
-        object.transform = scaling(2.0, 2.0, 2.0);
+        object.set_transform(scaling(2.0, 2.0, 2.0));
         let mut pattern = Pattern::stripe(WHITE, BLACK);
         pattern.transform = translation(0.5, 0.0, 0.0);
         let c = pattern.color_at_shape(&object, &Tuple::point(2.5, 0.0, 0.0));
@@ -186,7 +187,7 @@ mod tests {
     #[test]
     fn a_pattern_with_an_object_transformation() {
         let mut shape = Shape::sphere();
-        shape.transform = scaling(2.0, 2.0, 2.0);
+        shape.set_transform(scaling(2.0, 2.0, 2.0));
         let pattern = Pattern::test_pattern();
 
         let c = pattern.color_at_shape(&shape, &Tuple::point(2.0, 3.0, 4.0));
@@ -208,7 +209,7 @@ mod tests {
     #[test]
     fn a_pattern_with_both_an_object_and_a_pattern_transformation() {
         let mut shape = Shape::sphere();
-        shape.transform = scaling(2.0, 2.0, 2.0);
+        shape.set_transform(scaling(2.0, 2.0, 2.0));
         let mut pattern = Pattern::test_pattern();
         pattern.transform = translation(0.5, 1.0, 1.5);
 

@@ -3,7 +3,7 @@ Learning Rust by implementing a basic ray tracer, following the book [The Ray Tr
 
 # Prerequisite
 
-- [Rust](https://www.rust-lang.org/)
+-   [Rust](https://www.rust-lang.org/)
 
 # Running tests
 
@@ -20,4 +20,4 @@ cargo run --release your_file_name.ppm
 ```
 
 # TODOs
-- Optimize! This is slooooooow.
+-   Optimize! This is slow.

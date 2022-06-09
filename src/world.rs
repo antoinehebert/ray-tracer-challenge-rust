@@ -32,7 +32,7 @@ impl World {
         s1.material.specular = 0.2;
 
         let mut s2 = Shape::sphere();
-        s2.transform = scaling(0.5, 0.5, 0.5);
+        s2.set_transform(scaling(0.5, 0.5, 0.5));
 
         Self {
             objects: vec![s1, s2],
@@ -187,7 +187,7 @@ mod tests {
         s1.material.specular = 0.2;
 
         let mut s2 = Shape::sphere();
-        s2.transform = scaling(0.5, 0.5, 0.5);
+        s2.set_transform(scaling(0.5, 0.5, 0.5));
 
         let w = World::default_world();
 
@@ -297,7 +297,7 @@ mod tests {
         let s1 = Shape::sphere();
         w.objects.push(s1);
         let mut s2 = Shape::sphere();
-        s2.transform = translation(0.0, 0.0, 10.0);
+        s2.set_transform(translation(0.0, 0.0, 10.0));
         w.objects.push(s2);
 
         let r = Ray::new(Tuple::point(0.0, 0.0, 5.0), Tuple::vector(0.0, 0.0, 1.0));
@@ -324,7 +324,7 @@ mod tests {
         let mut w = World::default_world();
         let mut shape = Shape::plane();
         shape.material.reflective = 0.5;
-        shape.transform = translation(0.0, -1.0, 0.0);
+        shape.set_transform(translation(0.0, -1.0, 0.0));
         w.objects.push(shape.clone());
         let r = Ray::new(
             Tuple::point(0.0, 0.0, -3.0),
@@ -341,7 +341,7 @@ mod tests {
         let mut w = World::default_world();
         let mut shape = Shape::plane();
         shape.material.reflective = 0.5;
-        shape.transform = translation(0.0, -1.0, 0.0);
+        shape.set_transform(translation(0.0, -1.0, 0.0));
         w.objects.push(shape.clone());
         let r = Ray::new(
             Tuple::point(0.0, 0.0, -3.0),
@@ -359,12 +359,12 @@ mod tests {
 
         let mut lower = Shape::plane();
         lower.material.reflective = 1.0;
-        lower.transform = translation(0.0, -1.0, 0.0);
+        lower.set_transform(translation(0.0, -1.0, 0.0));
         w.objects.push(lower);
 
         let mut upper = Shape::plane();
         upper.material.reflective = 1.0;
-        upper.transform = translation(0.0, 1.0, 0.0);
+        upper.set_transform(translation(0.0, 1.0, 0.0));
         w.objects.push(upper);
 
         let r = Ray::new(Tuple::point(0.0, 0.0, 0.0), Tuple::vector(0.0, 1.0, 0.0));
@@ -377,7 +377,7 @@ mod tests {
         let mut w = World::default_world();
         let mut shape = Shape::plane();
         shape.material.reflective = 0.5;
-        shape.transform = translation(0.0, -1.0, 0.0);
+        shape.set_transform(translation(0.0, -1.0, 0.0));
         w.objects.push(shape.clone());
         let r = Ray::new(
             Tuple::point(0.0, 0.0, -3.0),
@@ -489,7 +489,7 @@ mod tests {
         let mut w = World::default_world();
 
         let mut floor = Shape::plane();
-        floor.transform = translation(0.0, -1.0, 0.0);
+        floor.set_transform(translation(0.0, -1.0, 0.0));
         floor.material.transparency = 0.5;
         floor.material.refractive_index = 1.5;
         w.objects.push(floor);
@@ -497,7 +497,7 @@ mod tests {
         let mut ball = Shape::sphere();
         ball.material.color = RED;
         ball.material.ambient = 0.5;
-        ball.transform = translation(0.0, -3.5, -0.5);
+        ball.set_transform(translation(0.0, -3.5, -0.5));
         w.objects.push(ball);
 
         let r = Ray::new(
@@ -519,7 +519,7 @@ mod tests {
         let mut w = World::default_world();
 
         let mut floor = Shape::plane();
-        floor.transform = translation(0.0, -1.0, 0.0);
+        floor.set_transform(translation(0.0, -1.0, 0.0));
         floor.material.reflective = 0.5;
         floor.material.transparency = 0.5;
         floor.material.refractive_index = 1.5;
@@ -528,7 +528,7 @@ mod tests {
         let mut ball = Shape::sphere();
         ball.material.color = RED;
         ball.material.ambient = 0.5;
-        ball.transform = translation(0.0, -3.5, -0.5);
+        ball.set_transform(translation(0.0, -3.5, -0.5));
         w.objects.push(ball);
 
         let r = Ray::new(

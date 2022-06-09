@@ -256,7 +256,7 @@ mod tests {
     fn the_hit_should_offset_the_point() {
         let r = Ray::new(Tuple::point(0.0, 0.0, -5.0), Tuple::vector(0.0, 0.0, 1.0));
         let mut shape = Shape::sphere();
-        shape.transform = translation(0.0, 0.0, 1.0);
+        shape.set_transform(translation(0.0, 0.0, 1.0));
         let i = Intersection::new(5.0, &shape);
         let comps = i.prepare_computations(&r, &vec![i.clone()]);
         assert!(comps.over_point.z < -EPSILON / 2.0);
@@ -287,15 +287,15 @@ mod tests {
     #[test]
     fn finding_n1_and_n2_at_various_intersections() {
         let mut a = Shape::glass_sphere();
-        a.transform = scaling(2.0, 2.0, 2.0);
+        a.set_transform(scaling(2.0, 2.0, 2.0));
         a.material.refractive_index = 1.5;
 
         let mut b = Shape::glass_sphere();
-        b.transform = translation(0.0, 0.0, -0.25);
+        b.set_transform(translation(0.0, 0.0, -0.25));
         b.material.refractive_index = 2.0;
 
         let mut c = Shape::glass_sphere();
-        c.transform = translation(0.0, 0.0, 0.25);
+        c.set_transform(translation(0.0, 0.0, 0.25));
         c.material.refractive_index = 2.5;
 
         let r = Ray::new(Tuple::point(0.0, 0.0, -4.0), Tuple::vector(0.0, 0.0, 1.0));
@@ -328,7 +328,7 @@ mod tests {
     fn the_under_point_is_offset_below_the_surface() {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let mut shape = Shape::glass_sphere();
-        shape.transform = translation(0., 0., 1.);
+        shape.set_transform(translation(0., 0., 1.));
         let i = Intersection::new(5., &shape);
         let xs: Intersections = vec![i];
         let comps = xs[0].prepare_computations(&r, &xs);

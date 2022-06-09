@@ -60,7 +60,7 @@ impl Bounds {
                     // First, to convert a point from object space to its parent space, multiply the point by the
                     // object’s transformation matrix.
                     let parent_space_bounds = Bounds::new(&shape);
-                    let transformation = shape.transform;
+                    let transformation = shape.transform();
 
                     // Second, when transforming an entire bounding box, first transform all eight of the cube’s
                     // corners, and then find a single bounding box that fits them all. If you can’t quite see why you’d
