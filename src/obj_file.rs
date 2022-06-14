@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fs};
 
-use crate::{matrix::Matrix, shape::Shape, tuple::Tuple};
+use crate::{shape::Shape, tuple::Tuple};
 
 struct Parser {
     vertices: Vec<Tuple>,
@@ -14,16 +14,23 @@ impl Parser {
         Self {
             ignored_lines: 0,
             vertices: Vec::new(),
-            default_group: Shape::group(vec![], Matrix::<4>::identity()), // TODO: Do we need this? Should we have a "" key in named_groups?
+            default_group: Shape::group(), // TODO: Do we need this? Should we have a "" key in named_groups?
             named_groups: HashMap::new(),
         }
     }
 
-    fn from_obj_file(text: &str) -> Self {
+    // TODO: Make path relative to project root.
+    fn from_obj_file(filename: &str) -> Self {
+        let file_content = fs::read_to_string(filename)
+            .expect(format!("something went wrong reading {filename}.").as_str());
+        Self::from_obj_str(file_content.as_str())
+    }
+
+    fn from_obj_str(text: &str) -> Self {
         let text = text.clone();
         let mut result = Self::new();
 
-        let current_group = None;
+        let mut current_group_name = None; // TODO: @Performance: Find a way to keep a reference to the current group instead?
 
         for s in text.lines() {
             let mut tokens = s.split_whitespace();
@@ -72,27 +79,30 @@ impl Parser {
                             let p2 = result.vertices(v2);
                             let p3 = result.vertices(v3);
 
-                            let mut triangle = Shape::triangle(p1, p2, p3);
-                            if let Some(&g) = current_group {
-                                Shape::add_child(g, &mut triangle);
+                            let triangle = Shape::triangle(p1, p2, p3);
+                            if let Some(group_name) = current_group_name {
+                                result
+                                    .named_groups
+                                    .get_mut(group_name)
+                                    .unwrap()
+                                    .push_shape(triangle);
                             } else {
-                                Shape::add_child(&mut result.default_group, &mut triangle);
+                                result.default_group.push_shape(triangle);
                             }
 
                             v2 = v3;
                         }
                     }
                     "g" => {
-                        let current_group_name = tokens
+                        let group_name = tokens
                             .next()
                             .unwrap_or_else(|| panic!("group should have a name in \"{}\"", s));
 
-                        let current_group = Some(Shape::group());
+                        result
+                            .named_groups
+                            .insert(group_name.to_string(), Shape::group());
 
-                        result.named_groups.insert(
-                            current_group_name.to_string(),
-                            current_group.unwrap().clone(),
-                        );
+                        current_group_name = Some(group_name);
                     }
                     _ => result.ignored_lines += 1,
                 }
@@ -104,6 +114,17 @@ impl Parser {
 
     fn vertices(&self, one_based_index: usize) -> Tuple {
         self.vertices[one_based_index - 1]
+    }
+
+    // Consumes the parser...
+    fn obj_to_group(self) -> Shape {
+        let mut g = Shape::group();
+        g.push_shape(self.default_group);
+        for (_name, shape) in self.named_groups {
+            g.push_shape(shape);
+        }
+
+        g
     }
 }
 
@@ -125,7 +146,7 @@ mod tests {
             and came back the previous night.
             ",
         );
-        let parser = Parser::from_obj_file(&gibberish);
+        let parser = Parser::from_obj_str(&gibberish);
         assert_eq!(parser.ignored_lines, 5);
     }
 
@@ -138,7 +159,7 @@ mod tests {
         v 1 1 0
         ";
 
-        let parser = Parser::from_obj_file(&file);
+        let parser = Parser::from_obj_str(&file);
 
         assert_eq!(parser.vertices(1), Tuple::point(-1, 1, 0));
         assert_eq!(parser.vertices(2), Tuple::point(-1.0, 0.5, 0.0));
@@ -158,10 +179,10 @@ mod tests {
         f 1 3 4
         ";
 
-        let parser = Parser::from_obj_file(&file);
-        let g = parser.default_group.borrow();
-        let t1 = g.shapes().unwrap()[0].borrow();
-        let t2 = g.shapes().unwrap()[1].borrow();
+        let parser = Parser::from_obj_str(&file);
+        let g = &parser.default_group;
+        let t1 = &g.shapes().unwrap()[0];
+        let t2 = &g.shapes().unwrap()[1];
 
         // TODO: verticles function that takes 1-based indexes?
 
@@ -195,11 +216,11 @@ mod tests {
       f 1 2 3 4 5
     ";
 
-        let parser = Parser::from_obj_file(&file);
-        let g = parser.default_group.borrow();
-        let t1 = g.shapes().unwrap()[0].borrow();
-        let t2 = g.shapes().unwrap()[1].borrow();
-        let t3 = g.shapes().unwrap()[2].borrow();
+        let parser = Parser::from_obj_str(&file);
+        let g = &parser.default_group;
+        let t1 = &g.shapes().unwrap()[0];
+        let t2 = &g.shapes().unwrap()[1];
+        let t3 = &g.shapes().unwrap()[2];
 
         match &t1.kind {
             ShapeKind::Triangle { p1, p2, p3, .. } => {
@@ -229,24 +250,12 @@ mod tests {
 
     #[test]
     fn triangles_in_groups() {
-        let file = "
-            v -1 1 0
-            v -1 0 0
-            v 1 0 0
-            v 1 1 0
+        let parser = Parser::from_obj_file("src/test/files/triangles.obj");
+        let g1 = &parser.named_groups["FirstGroup"];
+        let g2 = &parser.named_groups["SecondGroup"];
 
-            g FirstGroup
-            f 1 2 3
-            g SecondGroup
-            f 1 3 4
-    ";
-
-        let parser = Parser::from_obj_file(&file);
-        let g1 = parser.named_groups["FirstGroup"].borrow();
-        let g2 = parser.named_groups["FirstGroup"].borrow();
-
-        let t1 = g1.shapes().unwrap()[0].borrow();
-        let t2 = g2.shapes().unwrap()[0].borrow();
+        let t1 = &g1.shapes().unwrap()[0];
+        let t2 = &g2.shapes().unwrap()[0];
 
         match &t1.kind {
             ShapeKind::Triangle { p1, p2, p3, .. } => {
@@ -266,15 +275,24 @@ mod tests {
         }
     }
 
-    /*
     #[test]
     fn converting_an_obj_file_to_a_group() {
-      Given file ← the file "triangles.obj"
-        And parser ← parse_obj_file(file)
-      When g ← obj_to_group(parser)
-      Then g includes "FirstGroup" from parser
-        And g includes "SecondGroup" from parser
+        let parser = Parser::from_obj_file("src/test/files/triangles.obj");
 
+        let default_group = parser.default_group.clone();
+        let first_group = parser.named_groups["FirstGroup"].clone();
+        let second_group = parser.named_groups["SecondGroup"].clone();
+
+        let g = parser.obj_to_group();
+        let shapes = g.shapes().unwrap();
+
+        assert_eq!(shapes.len(), 3);
+        assert!(shapes.contains(&default_group));
+        assert!(shapes.contains(&first_group));
+        assert!(shapes.contains(&second_group));
+    }
+
+    /*
     #[test]
     fn vertex_normal_records() {
       Given file ← a file containing:

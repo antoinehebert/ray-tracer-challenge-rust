@@ -10,6 +10,7 @@ mod intersection;
 mod light;
 mod material;
 mod matrix;
+mod obj_file;
 mod pattern;
 mod ray;
 mod shape;
@@ -18,7 +19,6 @@ mod transformations;
 mod tuple;
 mod utils;
 mod world;
-// mod obj_file;
 
 use std::env;
 

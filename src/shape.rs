@@ -471,17 +471,20 @@ impl Shape {
         world_normal.normalize()
     }
 
-    fn shapes(&mut self) -> Option<&mut Vec<Self>> {
-        match &mut self.kind {
+    pub fn shapes(&self) -> Option<&Vec<Self>> {
+        match &self.kind {
             ShapeKind::Group { shapes, .. } => Some(shapes),
             _ => None, // It would be nice to return an empty vector here instead, so callers wouldn't have to unwrap.
         }
     }
 
     pub fn push_shape(&mut self, shape: Shape) {
-        self.shapes()
-            .expect("push_shape was called on something that isn't a group")
-            .push(shape);
+        match &mut self.kind {
+            ShapeKind::Group { shapes, .. } => {
+                shapes.push(shape);
+            }
+            _ => panic!("push_shape was called on something that isn't a group"),
+        }
     }
 
     fn intersect_caps<'a>(&'a self, intersections: &mut Vec<Intersection<'a>>, local_ray: &Ray) {
@@ -1426,7 +1429,7 @@ mod tests {
 
     #[test]
     fn creating_a_new_group() {
-        let mut g = Shape::group();
+        let g = Shape::group();
 
         assert_eq!(g.transform, Matrix::<4>::identity());
         assert_eq!(g.shapes().unwrap().len(), 0);
