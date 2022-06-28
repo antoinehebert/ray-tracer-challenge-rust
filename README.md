@@ -21,3 +21,6 @@ cargo run --release your_file_name.ppm
 
 # TODOs
 -   Optimize! This is slow.
+    -   pre-compute transforms
+    -   pre-compute bounding boxes
+    -   parallelize using [rayon](https://github.com/rayon-rs/rayon)?

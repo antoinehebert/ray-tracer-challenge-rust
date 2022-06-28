@@ -66,7 +66,12 @@ impl Bounds {
                     // corners, and then find a single bounding box that fits them all. If you can’t quite see why you’d
                     // need to transform all eight points, imagine rotating the box 45° around any axis, and then figure
                     // out what the new axis-aligned bounding box ought to look like.
-                    let p1 = transformation * parent_space_bounds.min;
+                    let p1 = transformation
+                        * Tuple::point(
+                            parent_space_bounds.min.x,
+                            parent_space_bounds.min.y,
+                            parent_space_bounds.min.z,
+                        );
                     let p2 = transformation
                         * Tuple::point(
                             parent_space_bounds.min.x,
@@ -118,7 +123,18 @@ impl Bounds {
                 min = out.min;
                 max = out.max;
             }
-            ShapeKind::Triangle { .. } => panic!("TODO, bounds of a triangle!"),
+            ShapeKind::Triangle { p1, p2, p3, .. } => {
+                let mut tmp_bounds = Self {
+                    min: Tuple::point(0., 0., 0.),
+                    max: Tuple::point(0., 0., 0.),
+                };
+                tmp_bounds.add(p1);
+                tmp_bounds.add(p2);
+                tmp_bounds.add(p3);
+
+                min = tmp_bounds.min;
+                max = tmp_bounds.max;
+            }
         }
         Self { min, max }
     }
@@ -126,24 +142,11 @@ impl Bounds {
     fn add(&mut self, point: &Tuple) {
         assert!(point.is_point());
 
-        if self.min.x > point.x {
-            self.min.x = point.x
-        }
-        if self.min.y > point.y {
-            self.min.y = point.y
-        }
-        if self.min.z > point.z {
-            self.min.z = point.z
-        }
-
-        if self.max.x < point.x {
-            self.max.x = point.x
-        }
-        if self.max.y < point.y {
-            self.max.y = point.y
-        }
-        if self.max.z < point.z {
-            self.max.z = point.z
-        }
+        self.min.x = f64::min(self.min.x, point.x);
+        self.min.y = f64::min(self.min.y, point.y);
+        self.min.z = f64::min(self.min.z, point.z);
+        self.max.x = f64::max(self.max.x, point.x);
+        self.max.y = f64::max(self.max.y, point.y);
+        self.max.z = f64::max(self.max.z, point.z);
     }
 }

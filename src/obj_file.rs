@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs};
 
 use crate::{shape::Shape, tuple::Tuple};
 
-struct Parser {
+pub struct Parser {
     vertices: Vec<Tuple>,
     ignored_lines: usize,
     default_group: Shape,
@@ -20,7 +20,7 @@ impl Parser {
     }
 
     // TODO: Make path relative to project root.
-    fn from_obj_file(filename: &str) -> Self {
+    pub fn from_obj_file(filename: &str) -> Self {
         let file_content = fs::read_to_string(filename)
             .expect(format!("something went wrong reading {filename}.").as_str());
         Self::from_obj_str(file_content.as_str())
@@ -117,7 +117,7 @@ impl Parser {
     }
 
     // Consumes the parser...
-    fn obj_to_group(self) -> Shape {
+    pub fn obj_to_group(self) -> Shape {
         let mut g = Shape::group();
         g.push_shape(self.default_group);
         for (_name, shape) in self.named_groups {

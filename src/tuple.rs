@@ -11,13 +11,8 @@ pub struct Tuple {
 }
 
 impl Tuple {
-    pub fn new<T: Into<f64> + Copy>(x: T, y: T, z: T, w: T) -> Self {
-        Self {
-            x: x.into(),
-            y: y.into(),
-            z: z.into(),
-            w: w.into(),
-        }
+    pub fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
+        Self { x, y, z, w }
     }
 
     pub fn zero() -> Self {

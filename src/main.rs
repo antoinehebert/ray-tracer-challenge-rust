@@ -27,6 +27,7 @@ use std::fs::File;
 use camera::Camera;
 use color::*;
 use light::Light;
+use obj_file::Parser;
 use pattern::Pattern;
 use shape::Shape;
 use std::f64::consts::PI;
@@ -75,7 +76,7 @@ fn main() {
         400
     };
 
-    putting_it_together_hexagon(&filename, width);
+    putting_it_together_cow(&filename, width);
 }
 
 // Chapter 14.
@@ -309,6 +310,37 @@ fn putting_it_together_table_scene(filename: &str, width: usize) {
     mirror.material.shininess = 300.0;
     mirror.material.reflective = 1.0;
     world.objects.push(mirror);
+
+    let canvas = camera.render(&world);
+
+    let file = File::create(filename);
+
+    match file {
+        Ok(mut file) => canvas.to_ppm(&mut file),
+        Err(msg) => println!("Can't open {}: {}", filename, msg),
+    }
+}
+
+//
+// Putting it together. Cow
+//
+fn putting_it_together_cow(filename: &str, width: usize) {
+    let mut camera = Camera::new(width, width / 2, 0.785);
+    camera.transform = view_transform(
+        Tuple::point(8.0, 6.0, -8.0),
+        Tuple::point(0.0, 3.0, 0.0),
+        Tuple::vector(0.0, 1.0, 0.0),
+    );
+
+    let light = Light::new(Tuple::point(0.0, 6.9, -5.0), Color::new(1.0, 1.0, 0.9));
+
+    let mut world = World::new(light);
+
+    let cow_obj = Parser::from_obj_file("objs/cow-nonormals.obj");
+    let mut cow = cow_obj.obj_to_group();
+    cow.set_transform(translation(0., 3.5, 0.) * scaling(0.5, 0.5, 0.5));
+
+    world.objects.push(cow);
 
     let canvas = camera.render(&world);
 
