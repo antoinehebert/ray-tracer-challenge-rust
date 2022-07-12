@@ -82,11 +82,11 @@ fn main() {
 // Chapter 14.
 fn putting_it_together_hexagon(filename: &str, width: usize) {
     let mut camera = Camera::new(width, width / 2, 0.785);
-    camera.transform = view_transform(
+    camera.set_transform(view_transform(
         Tuple::point(8.0, 6.0, -8.0),
         Tuple::point(0.0, 0.0, 0.0),
         Tuple::vector(0.0, 1.0, 0.0),
-    );
+    ));
 
     let light = Light::new(Tuple::point(0.0, 6.9, -5.0), Color::new(1.0, 1.0, 0.9));
 
@@ -150,11 +150,11 @@ fn putting_it_together_hexagon(filename: &str, width: usize) {
 fn putting_it_together_table_scene(filename: &str, width: usize) {
     // From: https://forum.raytracerchallenge.com/thread/6/tables-scene-description
     let mut camera = Camera::new(width, width / 2, 0.785);
-    camera.transform = view_transform(
+    camera.set_transform(view_transform(
         Tuple::point(8.0, 6.0, -8.0),
         Tuple::point(0.0, 3.0, 0.0),
         Tuple::vector(0.0, 1.0, 0.0),
-    );
+    ));
 
     let light = Light::new(Tuple::point(0.0, 6.9, -5.0), Color::new(1.0, 1.0, 0.9));
 
@@ -163,7 +163,7 @@ fn putting_it_together_table_scene(filename: &str, width: usize) {
     let mut floor_ceiling = Shape::cube();
     floor_ceiling.set_transform(scaling(20.0, 7.0, 20.0) * translation(0.0, 1.0, 0.1));
     let mut pattern = Pattern::checkers(BLACK, Color::new(0.25, 0.25, 0.25));
-    pattern.transform = scaling(0.07, 0.07, 0.07);
+    pattern.set_transform(scaling(0.07, 0.07, 0.07));
     floor_ceiling.material.pattern = Some(pattern);
     floor_ceiling.material.ambient = 0.25;
     floor_ceiling.material.diffuse = 0.7;
@@ -178,7 +178,7 @@ fn putting_it_together_table_scene(filename: &str, width: usize) {
         Color::new(0.4863, 0.3765, 0.2941),
         Color::new(0.3725, 0.2902, 0.2275),
     );
-    pattern.transform = scaling(0.05, 20.0, 0.05);
+    pattern.set_transform(scaling(0.05, 20.0, 0.05));
     walls.material.pattern = Some(pattern);
     walls.material.ambient = 0.1;
     walls.material.diffuse = 0.7;
@@ -193,7 +193,7 @@ fn putting_it_together_table_scene(filename: &str, width: usize) {
         Color::new(0.5529, 0.4235, 0.3255),
         Color::new(0.6588, 0.5098, 0.4000),
     );
-    pattern.transform = scaling(0.05, 0.05, 0.05) * rotation_y(0.1);
+    pattern.set_transform(scaling(0.05, 0.05, 0.05) * rotation_y(0.1));
     table_top.material.pattern = Some(pattern);
     table_top.material.ambient = 0.1;
     table_top.material.diffuse = 0.7;
@@ -326,11 +326,11 @@ fn putting_it_together_table_scene(filename: &str, width: usize) {
 //
 fn putting_it_together_cow(filename: &str, width: usize) {
     let mut camera = Camera::new(width, width / 2, 0.785);
-    camera.transform = view_transform(
+    camera.set_transform(view_transform(
         Tuple::point(8.0, 6.0, -8.0),
         Tuple::point(0.0, 3.0, 0.0),
         Tuple::vector(0.0, 1.0, 0.0),
-    );
+    ));
 
     let light = Light::new(Tuple::point(0.0, 6.9, -5.0), Color::new(1.0, 1.0, 0.9));
 

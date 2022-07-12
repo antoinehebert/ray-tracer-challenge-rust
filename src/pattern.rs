@@ -13,7 +13,8 @@ enum PatternKind {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Pattern {
-    pub transform: Matrix<4>,
+    transform: Matrix<4>,
+    transform_inverse: Matrix<4>,
     kind: PatternKind,
 }
 
@@ -21,6 +22,7 @@ impl Pattern {
     pub fn stripe(a: Color, b: Color) -> Self {
         Self {
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
             kind: PatternKind::Stripe(a, b),
         }
     }
@@ -28,6 +30,7 @@ impl Pattern {
     pub fn gradient(from: Color, to: Color) -> Self {
         Self {
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
             kind: PatternKind::Gradient(from, to),
         }
     }
@@ -35,6 +38,7 @@ impl Pattern {
     pub fn ring(a: Color, b: Color) -> Self {
         Self {
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
             kind: PatternKind::Ring(a, b),
         }
     }
@@ -42,6 +46,7 @@ impl Pattern {
     pub fn checkers(a: Color, b: Color) -> Self {
         Self {
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
             kind: PatternKind::Checkers(a, b),
         }
     }
@@ -50,8 +55,14 @@ impl Pattern {
     pub fn test_pattern() -> Pattern {
         Pattern {
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
             kind: PatternKind::Test,
         }
+    }
+
+    pub fn set_transform(&mut self, transform: Matrix<4>) {
+        self.transform = transform;
+        self.transform_inverse = self.transform.inverse().expect("should be invertible");
     }
 
     fn color_at(&self, point: &Tuple) -> Color {
@@ -85,9 +96,8 @@ impl Pattern {
 
     // TODO: move on Shape?
     pub fn color_at_shape(&self, object: &Shape, world_point: &Tuple) -> Color {
-        let object_point =
-            object.transform().inverse().expect("should be invertible") * *world_point;
-        let pattern_point = self.transform.inverse().expect("should be invertible") * object_point;
+        let object_point = object.transform_inverse() * *world_point;
+        let pattern_point = self.transform_inverse * object_point;
 
         self.color_at(&pattern_point)
     }
@@ -155,7 +165,7 @@ mod tests {
     fn stripes_with_a_pattern_transformation() {
         let object = Shape::sphere();
         let mut pattern = Pattern::stripe(WHITE, BLACK);
-        pattern.transform = scaling(2.0, 2.0, 2.0);
+        pattern.set_transform(scaling(2.0, 2.0, 2.0));
         let c = pattern.color_at_shape(&object, &Tuple::point(1.5, 0.0, 0.0));
         assert_eq!(c, WHITE);
     }
@@ -165,7 +175,7 @@ mod tests {
         let mut object = Shape::sphere();
         object.set_transform(scaling(2.0, 2.0, 2.0));
         let mut pattern = Pattern::stripe(WHITE, BLACK);
-        pattern.transform = translation(0.5, 0.0, 0.0);
+        pattern.set_transform(translation(0.5, 0.0, 0.0));
         let c = pattern.color_at_shape(&object, &Tuple::point(2.5, 0.0, 0.0));
         assert_eq!(c, WHITE);
     }
@@ -179,7 +189,7 @@ mod tests {
     #[test]
     fn assigning_a_transformation() {
         let mut pattern = Pattern::test_pattern();
-        pattern.transform = translation(1.0, 2.0, 3.0);
+        pattern.set_transform(translation(1.0, 2.0, 3.0));
 
         assert_eq!(pattern.transform, translation(1.0, 2.0, 3.0));
     }
@@ -199,7 +209,7 @@ mod tests {
     fn a_pattern_with_a_pattern_transformation() {
         let shape = Shape::sphere();
         let mut pattern = Pattern::test_pattern();
-        pattern.transform = scaling(2.0, 2.0, 2.0);
+        pattern.set_transform(scaling(2.0, 2.0, 2.0));
 
         let c = pattern.color_at_shape(&shape, &Tuple::point(2.0, 3.0, 4.0));
 
@@ -211,7 +221,7 @@ mod tests {
         let mut shape = Shape::sphere();
         shape.set_transform(scaling(2.0, 2.0, 2.0));
         let mut pattern = Pattern::test_pattern();
-        pattern.transform = translation(0.5, 1.0, 1.5);
+        pattern.set_transform(translation(0.5, 1.0, 1.5));
 
         let c = pattern.color_at_shape(&shape, &Tuple::point(2.5, 3.0, 3.5));
 

@@ -42,6 +42,8 @@ pub enum ShapeKind {
 pub struct Shape {
     pub kind: ShapeKind,
     transform: Matrix<4>,
+    transform_inverse: Matrix<4>,           // optimization
+    transform_inverse_transpose: Matrix<4>, // optimization
     transformed: bool,
     pub material: Material,
 }
@@ -51,6 +53,8 @@ impl Shape {
         Self {
             kind: ShapeKind::Sphere,
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: Material::new(),
         }
@@ -64,6 +68,8 @@ impl Shape {
         Self {
             kind: ShapeKind::Sphere,
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: material,
         }
@@ -73,6 +79,8 @@ impl Shape {
         Self {
             kind: ShapeKind::Plane,
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: Material::new(),
         }
@@ -82,6 +90,8 @@ impl Shape {
         Self {
             kind: ShapeKind::Cube,
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: Material::new(),
         }
@@ -95,6 +105,8 @@ impl Shape {
                 capped: false,
             },
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: Material::new(),
         }
@@ -108,6 +120,8 @@ impl Shape {
                 capped,
             },
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: Material::new(),
         }
@@ -121,6 +135,8 @@ impl Shape {
                 capped: false,
             },
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: Material::new(),
         }
@@ -134,6 +150,8 @@ impl Shape {
                 capped,
             },
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: Material::new(),
         }
@@ -143,6 +161,8 @@ impl Shape {
         Self {
             kind: ShapeKind::Group { shapes: Vec::new() },
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: Material::new(),
         }
@@ -165,6 +185,8 @@ impl Shape {
                 normal,
             },
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
+            transform_inverse_transpose: Matrix::<4>::identity(),
             transformed: false,
             material: Material::new(),
         }
@@ -190,11 +212,17 @@ impl Shape {
         } else {
             // TODO: Precompute inverse and interse.transpose?
             self.transform = transform * self.transform;
+            self.transform_inverse = self.transform.inverse().expect("should be invertible");
+            self.transform_inverse_transpose = self.transform_inverse.transpose();
         }
     }
 
     pub fn transform(&self) -> Matrix<4> {
         self.transform
+    }
+
+    pub fn transform_inverse(&self) -> Matrix<4> {
+        self.transform_inverse
     }
 
     // Returns intersection points (time) along `ray`.
@@ -570,11 +598,11 @@ impl Shape {
         //     None => (),
         // };
 
-        shape.transform.inverse().expect("Should be invertible") * *point
+        shape.transform_inverse * *point
     }
 
     fn normal_to_world(shape: &Self, normal: &Tuple) -> Tuple {
-        let mut normal = shape.transform.inverse().unwrap().transpose() * *normal;
+        let mut normal = shape.transform_inverse_transpose * *normal;
         normal.w = 0.0;
         normal = normal.normalize();
 
@@ -619,7 +647,7 @@ mod tests {
     #[test]
     fn assigning_a_transformation() {
         let mut s = Shape::sphere();
-        s.transform = translation(2.0, 3.0, 4.0);
+        s.set_transform(translation(2.0, 3.0, 4.0));
 
         assert_eq!(s.transform, translation(2.0, 3.0, 4.0));
     }
@@ -720,7 +748,7 @@ mod tests {
     fn changing_a_sphere_s_transformations() {
         let mut s = Shape::sphere();
         let t = translation(2., 3., 4.);
-        s.transform = t;
+        s.set_transform(t);
 
         assert_eq!(s.transform, t);
     }
@@ -730,7 +758,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let mut s = Shape::sphere();
 
-        s.transform = scaling(2., 2., 2.);
+        s.set_transform(scaling(2., 2., 2.));
         let xs = Shape::intersect(&s, &r);
 
         assert_eq!(xs.len(), 2);
@@ -744,7 +772,7 @@ mod tests {
         let r = Ray::new(Tuple::point(0., 0., -5.), Tuple::vector(0., 0., 1.));
         let mut s = Shape::sphere();
 
-        s.transform = translation(5., 0., 0.);
+        s.set_transform(translation(5., 0., 0.));
         let xs = Shape::intersect(&s, &r);
 
         assert_eq!(xs.len(), 0);
@@ -808,7 +836,7 @@ mod tests {
     #[test]
     fn computing_the_normal_on_a_translated_sphere() {
         let mut s = Shape::sphere();
-        s.transform = translation(0., 1., 0.);
+        s.set_transform(translation(0., 1., 0.));
 
         let n = Shape::normal_at(&s, &Tuple::point(0., 1.70711, -0.70711));
         assert_eq!(n, Tuple::vector(0., 0.70711, -0.70711));
@@ -818,7 +846,7 @@ mod tests {
     fn computing_the_normal_on_a_transformed_sphere() {
         let mut s = Shape::sphere();
         let m = scaling(1., 0.5, 1.) * rotation_z(PI / 5.);
-        s.transform = m;
+        s.set_transform(m);
         let n = Shape::normal_at(
             &s,
             &Tuple::point(0., (2 as f64).sqrt() / 2., -(2 as f64).sqrt() / 2.),
@@ -1457,9 +1485,9 @@ mod tests {
     fn intersecting_a_ray_with_a_nonempty_group() {
         let s1 = Shape::sphere();
         let mut s2 = Shape::sphere();
-        s2.transform = translation(0., 0., -3.);
+        s2.set_transform(translation(0., 0., -3.));
         let mut s3 = Shape::sphere();
-        s3.transform = translation(5., 0., 0.);
+        s3.set_transform(translation(5., 0., 0.));
 
         let mut g = Shape::group();
         g.push_shape(s1.clone());
@@ -1479,7 +1507,7 @@ mod tests {
     #[test]
     fn intersecting_a_transformed_group() {
         let mut s = Shape::sphere();
-        s.transform = translation(5., 0., 0.);
+        s.set_transform(translation(5., 0., 0.));
 
         let mut g = Shape::group();
         g.push_shape(s);

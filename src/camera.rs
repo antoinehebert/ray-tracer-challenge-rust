@@ -5,7 +5,8 @@ pub struct Camera {
     hsize: usize,
     vsize: usize,
     field_of_view: f64,
-    pub transform: Matrix<4>,
+    transform: Matrix<4>,
+    transform_inverse: Matrix<4>,
     pixel_size: f64,
     half_width: f64,
     half_height: f64,
@@ -18,6 +19,7 @@ impl Camera {
             vsize,
             field_of_view,
             transform: Matrix::<4>::identity(),
+            transform_inverse: Matrix::<4>::identity(),
             pixel_size: 0.0,
             half_width: 0.0,
             half_height: 0.0,
@@ -38,6 +40,11 @@ impl Camera {
         result
     }
 
+    pub fn set_transform(&mut self, transform: Matrix<4>) {
+        self.transform = transform;
+        self.transform_inverse = self.transform.inverse().expect("should be invertible");
+    }
+
     fn ray_for_pixel(&self, px: usize, py: usize) -> Ray {
         // Offset from the edge of the canvas to the pixel's center.
         let xoffset = (px as f64 + 0.5) * self.pixel_size;
@@ -50,10 +57,8 @@ impl Camera {
 
         // Using the camera matrix, transform the canvas point and the origin,​ and then compute the ray's direction
         // vector​ (remember that the canvas is at z=-1.)​
-        let pixel = self.transform.inverse().expect("Should be invertible")
-            * Tuple::point(world_x, world_y, -1.0);
-        let origin =
-            self.transform.inverse().expect("Should be invertible") * Tuple::point(0.0, 0.0, 0.0);
+        let pixel = self.transform_inverse * Tuple::point(world_x, world_y, -1.0);
+        let origin = self.transform_inverse * Tuple::point(0.0, 0.0, 0.0);
         let direction = (pixel - origin).normalize();
 
         Ray::new(origin, direction)
@@ -127,7 +132,7 @@ mod tests {
     #[test]
     fn constructing_a_ray_when_the_camera_is_transformed() {
         let mut c = Camera::new(201, 101, PI / 2.0);
-        c.transform = rotation_y(PI / 4.0) * translation(0.0, -2.0, 5.0);
+        c.set_transform(rotation_y(PI / 4.0) * translation(0.0, -2.0, 5.0));
         let r = c.ray_for_pixel(100, 50);
         assert_eq!(r.origin, Tuple::point(0.0, 2.0, -5.0));
         assert_eq!(
@@ -143,7 +148,7 @@ mod tests {
         let from = Tuple::point(0.0, 0.0, -5.0);
         let to = Tuple::point(0.0, 0.0, 0.0);
         let up = Tuple::vector(0.0, 1.0, 0.0);
-        c.transform = view_transform(from, to, up);
+        c.set_transform(view_transform(from, to, up));
         let image = c.render(&w);
 
         assert_eq!(image.get_pixel(5, 5), Color::new(0.38066, 0.47583, 0.2855));
