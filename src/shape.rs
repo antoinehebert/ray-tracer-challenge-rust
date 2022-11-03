@@ -45,7 +45,7 @@ pub struct Shape {
     transform_inverse: Matrix<4>,           // optimization
     transform_inverse_transpose: Matrix<4>, // optimization
     transformed: bool,
-    pub material: Material,
+    material: Material,
 }
 
 impl Shape {
@@ -215,6 +215,25 @@ impl Shape {
             self.transform_inverse = self.transform.inverse().expect("should be invertible");
             self.transform_inverse_transpose = self.transform_inverse.transpose();
         }
+    }
+
+    pub fn set_material(&mut self, material: &Material) {
+        if let ShapeKind::Group { shapes } = &mut self.kind {
+            for shape in shapes {
+                shape.set_material(material);
+            }
+        } else {
+            // TODO: Pre-compute inverse and inverse.transpose?
+            self.material = material.clone();
+        }
+    }
+
+    pub fn get_material(&self) -> &Material {
+        &self.material
+    }
+
+    pub fn get_material_mut(&mut self) -> &mut Material {
+        &mut self.material
     }
 
     pub fn transform(&self) -> Matrix<4> {

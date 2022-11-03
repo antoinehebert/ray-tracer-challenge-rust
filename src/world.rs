@@ -27,9 +27,9 @@ impl World {
         let light = Light::new(Tuple::point(-10.0, 10.0, -10.0), WHITE);
 
         let mut s1 = Shape::sphere();
-        s1.material.color = Color::new(0.8, 1.0, 0.6);
-        s1.material.diffuse = 0.7;
-        s1.material.specular = 0.2;
+        s1.get_material_mut().color = Color::new(0.8, 1.0, 0.6);
+        s1.get_material_mut().diffuse = 0.7;
+        s1.get_material_mut().specular = 0.2;
 
         let mut s2 = Shape::sphere();
         s2.set_transform(scaling(0.5, 0.5, 0.5));
@@ -55,7 +55,7 @@ impl World {
 
     fn shade_hit(&self, comps: &Computations, remaining: usize) -> Color {
         let object = comps.object;
-        let material = &object.material;
+        let material = object.get_material();
         let surface = material.lighting(
             &self.light,
             &object,
@@ -118,14 +118,14 @@ impl World {
             return BLACK;
         }
         let object = comps.object;
-        if object.material.reflective == 0.0 {
+        if object.get_material().reflective == 0.0 {
             return BLACK;
         }
 
         let reflect_ray = Ray::new(comps.over_point, comps.reflectv);
         let color = self.internal_color_at(&reflect_ray, remaining - 1);
 
-        color * object.material.reflective
+        color * object.get_material().reflective
     }
 
     fn refracted_color(&self, comps: &Computations, remaining: usize) -> Color {
@@ -133,7 +133,7 @@ impl World {
             return BLACK;
         }
         let object = comps.object;
-        if object.material.transparency == 0.0 {
+        if object.get_material().transparency == 0.0 {
             return BLACK;
         }
 
@@ -156,8 +156,8 @@ impl World {
 
         // Find the color of the refracted ray, making sure to multiply
         // by the transparency value to account for any opacity
-        let color =
-            self.internal_color_at(&refract_ray, remaining - 1) * object.material.transparency;
+        let color = self.internal_color_at(&refract_ray, remaining - 1)
+            * object.get_material().transparency;
 
         color
     }
@@ -182,9 +182,9 @@ mod tests {
         let light = Light::new(Tuple::point(-10.0, 10.0, -10.0), WHITE);
 
         let mut s1 = Shape::sphere();
-        s1.material.color = Color::new(0.8, 1.0, 0.6);
-        s1.material.diffuse = 0.7;
-        s1.material.specular = 0.2;
+        s1.get_material_mut().color = Color::new(0.8, 1.0, 0.6);
+        s1.get_material_mut().diffuse = 0.7;
+        s1.get_material_mut().specular = 0.2;
 
         let mut s2 = Shape::sphere();
         s2.set_transform(scaling(0.5, 0.5, 0.5));
@@ -252,11 +252,11 @@ mod tests {
     #[test]
     fn the_color_with_an_intersection_behind_the_ray() {
         let mut w = World::default_world();
-        w.objects[0].material.ambient = 1.0;
-        w.objects[1].material.ambient = 1.0;
+        w.objects[0].get_material_mut().ambient = 1.0;
+        w.objects[1].get_material_mut().ambient = 1.0;
         let r = Ray::new(Tuple::point(0.0, 0.0, 0.75), Tuple::vector(0.0, 0.0, -1.0));
         let c = w.color_at(&r);
-        assert_eq!(c, w.objects[1].material.color);
+        assert_eq!(c, w.objects[1].get_material().color);
     }
 
     #[test]
@@ -312,7 +312,7 @@ mod tests {
     fn the_reflected_color_for_a_nonreflective_material() {
         let mut w = World::default_world();
         let r = Ray::new(Tuple::point(0.0, 0.0, 5.0), Tuple::vector(0.0, 0.0, 1.0));
-        w.objects[1].material.ambient = 1.0; // make sure we have something to reflect
+        w.objects[1].get_material_mut().ambient = 1.0; // make sure we have something to reflect
         let i = Intersection::new(1.0, &w.objects[1]);
         let comps = i.prepare_computations(&r, &vec![i.clone()]);
         let color = w.reflected_color(&comps, RECURSION_LIMIT);
@@ -323,7 +323,7 @@ mod tests {
     fn the_reflected_color_for_a_reflective_material() {
         let mut w = World::default_world();
         let mut shape = Shape::plane();
-        shape.material.reflective = 0.5;
+        shape.get_material_mut().reflective = 0.5;
         shape.set_transform(translation(0.0, -1.0, 0.0));
         w.objects.push(shape.clone());
         let r = Ray::new(
@@ -340,7 +340,7 @@ mod tests {
     fn shade_hit_with_a_reflective_material() {
         let mut w = World::default_world();
         let mut shape = Shape::plane();
-        shape.material.reflective = 0.5;
+        shape.get_material_mut().reflective = 0.5;
         shape.set_transform(translation(0.0, -1.0, 0.0));
         w.objects.push(shape.clone());
         let r = Ray::new(
@@ -358,12 +358,12 @@ mod tests {
         let mut w = World::new(Light::new(Tuple::point(0.0, 0.0, 0.0), WHITE));
 
         let mut lower = Shape::plane();
-        lower.material.reflective = 1.0;
+        lower.get_material_mut().reflective = 1.0;
         lower.set_transform(translation(0.0, -1.0, 0.0));
         w.objects.push(lower);
 
         let mut upper = Shape::plane();
-        upper.material.reflective = 1.0;
+        upper.get_material_mut().reflective = 1.0;
         upper.set_transform(translation(0.0, 1.0, 0.0));
         w.objects.push(upper);
 
@@ -376,7 +376,7 @@ mod tests {
     fn the_reflected_color_at_the_maximum_recursive_depth() {
         let mut w = World::default_world();
         let mut shape = Shape::plane();
-        shape.material.reflective = 0.5;
+        shape.get_material_mut().reflective = 0.5;
         shape.set_transform(translation(0.0, -1.0, 0.0));
         w.objects.push(shape.clone());
         let r = Ray::new(
@@ -410,9 +410,9 @@ mod tests {
         let mut w = World::default_world();
 
         {
-            let mut shape = &mut w.objects[0];
-            shape.material.transparency = 1.0;
-            shape.material.refractive_index = 1.5;
+            let shape = &mut w.objects[0];
+            shape.get_material_mut().transparency = 1.0;
+            shape.get_material_mut().refractive_index = 1.5;
         }
 
         let shape = &w.objects[0];
@@ -432,9 +432,9 @@ mod tests {
     fn the_refracted_color_under_total_internal_reflection() {
         let mut w = World::default_world();
         {
-            let mut shape = &mut w.objects[0];
-            shape.material.transparency = 1.0;
-            shape.material.refractive_index = 1.5;
+            let shape = &mut w.objects[0];
+            shape.get_material_mut().transparency = 1.0;
+            shape.get_material_mut().refractive_index = 1.5;
         }
         let shape = &w.objects[0];
         let r = Ray::new(
@@ -458,14 +458,14 @@ mod tests {
         let mut w = World::default_world();
 
         {
-            let mut a = &mut w.objects[0];
-            a.material.ambient = 1.0; // Fully ambient, so that it shows up regardless of lighting.
-            a.material.pattern = Some(Pattern::test_pattern());
+            let a = &mut w.objects[0];
+            a.get_material_mut().ambient = 1.0; // Fully ambient, so that it shows up regardless of lighting.
+            a.get_material_mut().pattern = Some(Pattern::test_pattern());
         }
         {
-            let mut b = &mut w.objects[1];
-            b.material.transparency = 1.0;
-            b.material.refractive_index = 1.5;
+            let b = &mut w.objects[1];
+            b.get_material_mut().transparency = 1.0;
+            b.get_material_mut().refractive_index = 1.5;
         }
 
         let r = Ray::new(Tuple::point(0.0, 0.0, 0.1), Tuple::vector(0.0, 1.0, 0.0));
@@ -490,13 +490,13 @@ mod tests {
 
         let mut floor = Shape::plane();
         floor.set_transform(translation(0.0, -1.0, 0.0));
-        floor.material.transparency = 0.5;
-        floor.material.refractive_index = 1.5;
+        floor.get_material_mut().transparency = 0.5;
+        floor.get_material_mut().refractive_index = 1.5;
         w.objects.push(floor);
 
         let mut ball = Shape::sphere();
-        ball.material.color = RED;
-        ball.material.ambient = 0.5;
+        ball.get_material_mut().color = RED;
+        ball.get_material_mut().ambient = 0.5;
         ball.set_transform(translation(0.0, -3.5, -0.5));
         w.objects.push(ball);
 
@@ -520,14 +520,14 @@ mod tests {
 
         let mut floor = Shape::plane();
         floor.set_transform(translation(0.0, -1.0, 0.0));
-        floor.material.reflective = 0.5;
-        floor.material.transparency = 0.5;
-        floor.material.refractive_index = 1.5;
+        floor.get_material_mut().reflective = 0.5;
+        floor.get_material_mut().transparency = 0.5;
+        floor.get_material_mut().refractive_index = 1.5;
         w.objects.push(floor);
 
         let mut ball = Shape::sphere();
-        ball.material.color = RED;
-        ball.material.ambient = 0.5;
+        ball.get_material_mut().color = RED;
+        ball.get_material_mut().ambient = 0.5;
         ball.set_transform(translation(0.0, -3.5, -0.5));
         w.objects.push(ball);
 

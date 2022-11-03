@@ -35,7 +35,7 @@ impl<'a> Intersection<'a> {
                     n1 = containers
                         .last()
                         .expect("there should be a last element in the list")
-                        .material
+                        .get_material()
                         .refractive_index
                 };
             }
@@ -54,7 +54,7 @@ impl<'a> Intersection<'a> {
                     n2 = containers
                         .last()
                         .expect("there should be a last element in the list")
-                        .material
+                        .get_material()
                         .refractive_index
                 };
                 break 'refraction_index_loop;
@@ -288,15 +288,15 @@ mod tests {
     fn finding_n1_and_n2_at_various_intersections() {
         let mut a = Shape::glass_sphere();
         a.set_transform(scaling(2.0, 2.0, 2.0));
-        a.material.refractive_index = 1.5;
+        a.get_material_mut().refractive_index = 1.5;
 
         let mut b = Shape::glass_sphere();
         b.set_transform(translation(0.0, 0.0, -0.25));
-        b.material.refractive_index = 2.0;
+        b.get_material_mut().refractive_index = 2.0;
 
         let mut c = Shape::glass_sphere();
         c.set_transform(translation(0.0, 0.0, 0.25));
-        c.material.refractive_index = 2.5;
+        c.get_material_mut().refractive_index = 2.5;
 
         let r = Ray::new(Tuple::point(0.0, 0.0, -4.0), Tuple::vector(0.0, 0.0, 1.0));
         let xs: Intersections = vec![
